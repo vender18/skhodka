@@ -53,10 +53,16 @@ const COLLECT_BATCH = 36;
 const DIGEST_BATCH = 80;
 
 /**
- * Спорта в канале должно быть мало, поэтому в одну выдачу пускаем максимум
- * один спортивный сюжет. Без этой квоты спортивные ленты забивают выдачу:
- * матчи идут каждый день, а показы и релизы — нет.
+ * Сколько сюжетов одной темы пускаем в одну выдачу.
+ *
+ * Ленты наполняются очень неравномерно: ArchDaily выкладывает по два десятка
+ * карточек проектов в день, спортивные ленты — матчи каждый день, а показы и
+ * релизы случаются реже. Без квоты одна такая лента забирает всю подборку:
+ * в первом дайджесте семь черновиков из восьми оказались архитектурой.
  */
+const CATEGORY_LIMIT = 2;
+
+/** Спорта в канале должно быть особенно мало. */
 const SPORT_LIMIT = 1;
 
 type StoryWithItems = Awaited<ReturnType<typeof loadStories>>[number];
@@ -83,18 +89,20 @@ function score(story: StoryWithItems): number {
   return story.importance * 3 + story.urgency * 2 + bestSource + manySources;
 }
 
-/** Выстраивает сюжеты по значимости и соблюдает квоту на спорт. */
+/** Выстраивает сюжеты по значимости и следит, чтобы одна тема не заняла всё. */
 function rank(stories: StoryWithItems[], limit: number): StoryWithItems[] {
   const sorted = [...stories].sort((a, b) => score(b) - score(a));
   const picked: StoryWithItems[] = [];
-  let sport = 0;
+  const taken = new Map<string, number>();
 
   for (const story of sorted) {
     if (picked.length >= limit) break;
-    if (story.category === 'SPORT') {
-      if (sport >= SPORT_LIMIT) continue;
-      sport += 1;
-    }
+
+    const quota = story.category === 'SPORT' ? SPORT_LIMIT : CATEGORY_LIMIT;
+    const used = taken.get(story.category) ?? 0;
+    if (used >= quota) continue;
+
+    taken.set(story.category, used + 1);
     picked.push(story);
   }
 

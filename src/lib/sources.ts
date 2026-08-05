@@ -319,6 +319,9 @@ export const SOURCES: SourceDef[] = [
     weight: 9,
   },
   {
+    // Вес занижен намеренно: ArchDaily по большей части каталог проектов —
+    // десятки описаний частных домов в день. Событий там мало, и без этого
+    // ограничения лента забивает выдачу карточками портфолио.
     slug: 'archdaily',
     name: 'ArchDaily',
     feedUrl: 'https://www.archdaily.com/rss/',
@@ -326,7 +329,7 @@ export const SOURCES: SourceDef[] = [
     category: 'ARCHITECTURE',
     region: 'WORLD',
     tier: 2,
-    weight: 8,
+    weight: 4,
   },
   {
     slug: 'designboom',
