@@ -33,6 +33,15 @@ const DIGEST_SIZE = 8;
 const STORY_TTL_DAYS = 3;
 
 /**
+ * Статусы сюжетов, которые ещё ждут отправки.
+ *
+ * DRAFTED обязательно должен быть здесь: если отправка сорвалась уже после
+ * того, как текст написан, сюжет остаётся в этом статусе. Пока сюда смотрел
+ * только SCORED, такие сюжеты выпадали из конвейера навсегда.
+ */
+const PENDING: ('SCORED' | 'DRAFTED')[] = ['SCORED', 'DRAFTED'];
+
+/**
  * Сколько материалов разбираем за раз в каждом режиме.
  *
  * У Groq потолок 200 тысяч токенов в сутки на модель. Почасовой сбор идёт
@@ -133,7 +142,7 @@ async function deliver(story: StoryWithItems): Promise<'draft' | 'alert' | 'skip
 async function expireStale(): Promise<number> {
   const cutoff = new Date(Date.now() - STORY_TTL_DAYS * 24 * 60 * 60 * 1000);
   const result = await prisma.story.updateMany({
-    where: { status: 'SCORED', createdAt: { lt: cutoff } },
+    where: { status: { in: PENDING }, createdAt: { lt: cutoff } },
     data: { status: 'SKIPPED' },
   });
   return result.count;
@@ -157,7 +166,7 @@ async function runCollect(): Promise<void> {
   const urgent = rank(
     await loadStories(
       {
-        status: 'SCORED',
+        status: { in: PENDING },
         urgency: { gte: URGENT_MIN_URGENCY },
         importance: { gte: URGENT_MIN_IMPORTANCE },
       },
@@ -203,7 +212,7 @@ async function runDigest(): Promise<void> {
   const clustered = await clusterNewItems(DIGEST_BATCH);
   console.log(`Добрано материалов: ${collected.added}, инфоповодов: ${clustered.created}`);
 
-  const stories = await loadStories({ status: 'SCORED' }, DIGEST_SIZE);
+  const stories = await loadStories({ status: { in: PENDING } }, DIGEST_SIZE);
 
   // Подтверждённые идут черновиками, громкие неподтверждённые — сигналами.
   // Тихие неподтверждённые ждут: возможно, их подтвердят к следующему разу.
