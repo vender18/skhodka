@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  CULTURE
+  ARCHITECTURE
+  CINEMA
+  MUSIC
+  FASHION
+  SPORT
+  GENERAL
+}
+
+enum Region {
+  RU
+  WORLD
+}
+
+enum StoryStatus {
+  NEW        // только собрана, ещё не оценена
+  SCORED     // оценена, ждёт своей очереди в дайджест
+  DRAFTED    // черновик написан
+  SENT       // черновик ушёл редактору в Telegram
+  SKIPPED    // не подходит каналу
+}
+
+enum Confidence {
+  CONFIRMED    // подтверждена авторитетным источником или несколькими независимыми
+  UNCONFIRMED  // громко, но пока на одном источнике — уходит с пометкой
+}
+
+/// Издание или лента, откуда тянем материалы.
+model Source {
+  id       String   @id @default(cuid())
+  slug     String   @unique
+  name     String
+  feedUrl  String
+  siteUrl  String
+  category Category
+  region   Region
+  /// 1 — авторитетное СМИ, 2 — профильное издание, 3 — агрегатор/слухи
+  tier     Int
+  /// 0–10, насколько охотно берём отсюда темы
+  weight   Int
+  enabled  Boolean  @default(true)
+
+  /// Диагностика: помогает заметить, что лента тихо умерла
+  lastFetchedAt DateTime?
+  lastOkAt      DateTime?
+  lastError     String?
+
+  items     Item[]
+  createdAt DateTime @default(now())
+}
+
+/// Одна публикация из одной ленты. Сырьё, из которого собираются инфоповоды.
+model Item {
+  id       String @id @default(cuid())
+  sourceId String
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  /// Канонический URL материала — по нему же ловим повторы внутри одной ленты
+  url         String   @unique
+  title       String
+  summary     String?  @db.Text
+  imageUrl    String?
+  publishedAt DateTime
+  fetchedAt   DateTime @default(now())
+
+  /// К какому инфоповоду отнесли. null — ещё не разобран.
+  storyId String?
+  story   Story?  @relation(fields: [storyId], references: [id], onDelete: SetNull)
+
+  /// Материал разобран и признан неподходящим каналу — больше не показываем модели.
+  skipped Boolean @default(false)
+
+  @@index([storyId])
+  @@index([skipped, storyId])
+  @@index([publishedAt])
+  @@index([sourceId, publishedAt])
+}
+
+/// Инфоповод: одна и та же новость, склеенная из нескольких Item разных изданий.
+model Story {
+  id       String      @id @default(cuid())
+  title    String
+  /// О чём новость в двух словах — на русском, для отбора и группировки
+  gist     String      @db.Text
+  category Category
+  status   StoryStatus @default(NEW)
+
+  /// 1–5, насколько срочно. 5 — публиковать прямо сейчас.
+  urgency    Int @default(1)
+  /// 1–5, насколько важно и интересно каналу.
+  importance Int @default(1)
+
+  confidence Confidence @default(UNCONFIRMED)
+  /// Почему решили, что подтверждена (или не подтверждена) — чтобы не гадать потом
+  confidenceNote String? @db.Text
+
+  /// Ключ для склейки повторов между запусками (нормализованные ключевые слова)
+  clusterKey String @unique
+
+  items Item[]
+  draft Draft?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, urgency])
+  @@index([createdAt])
+}
+
+/// Готовый текст поста, который агент присылает редактору.
+model Draft {
+  id      String @id @default(cuid())
+  storyId String @unique
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  text     String  @db.Text
+  imageUrl String?
+  /// Откуда взяли фото: 'source' — из самой новости, 'unsplash'/'pexels' — сток
+  imageCredit String?
+
+  /// Место в плане публикаций: чем меньше, тем раньше постить
+  planOrder Int?
+
+  sentAt      DateTime?
+  tgMessageId Int?
+
+  createdAt DateTime @default(now())
+}
+
+/// Отметка о том, что цикл отработал — чтобы дайджест не слал одно и то же дважды.
+model Run {
+  id        String   @id @default(cuid())
+  kind      String // 'collect' | 'digest'
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  itemsAdded  Int    @default(0)
+  storiesMade Int    @default(0)
+  draftsSent  Int    @default(0)
+  error       String? @db.Text
+
+  @@index([kind, startedAt])
+}

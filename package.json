@@ -1,0 +1,38 @@
+{
+  "name": "skhodka",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Агент-редактор: собирает инфоповоды по культуре, моде, кино, музыке, архитектуре и спорту, сверяет факты и присылает готовые черновики в Telegram",
+  "scripts": {
+    "collect": "tsx --env-file-if-exists=.env src/pipeline/run.ts collect",
+    "digest": "tsx --env-file-if-exists=.env src/pipeline/run.ts digest",
+    "seed": "tsx --env-file-if-exists=.env scripts/seed-sources.ts",
+    "check-feeds": "tsx scripts/check-feeds.ts",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "generate": "prisma generate",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^2.15.0",
+    "@prisma/client": "^6.19.3",
+    "cheerio": "^1.2.0",
+    "groq-sdk": "^1.5.0",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.8",
+    "typescript": "^5.7.0"
+  },
+  "allowScripts": {
+    "@google/genai@2.15.0": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.1": true,
+    "prisma@6.19.3": true,
+    "protobufjs@7.6.5": true
+  }
+}
