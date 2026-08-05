@@ -1,5 +1,6 @@
 import { prisma } from './db.js';
 import { completeJson } from './llm.js';
+import { env } from './env.js';
 import { CHANNEL_BRIEF } from './style.js';
 import type { Category, Confidence } from '@prisma/client';
 
@@ -23,11 +24,12 @@ import type { Category, Confidence } from '@prisma/client';
 const BATCH_SIZE = 18;
 
 /**
- * Сколько материалов разбираем за один запуск.
+ * Сколько материалов разбираем за один запуск по умолчанию.
  *
- * Ограничение не в скорости, а в лимите модели: у бесплатного Groq 8000
- * токенов в минуту, поэтому между пачками приходится выжидать. Больше
- * восьмидесяти за раз — и запуск не уложится в отведённые ему 20 минут.
+ * Ограничений два, и оба жёсткие: 8000 токенов в минуту (отсюда паузы между
+ * пачками) и 200 тысяч токенов в сутки на модель. Почасовой сбор при большой
+ * порции выбирает суточный лимит к обеду, поэтому там порция меньше — её
+ * задаёт вызывающий код.
  */
 const MAX_PER_RUN = 80;
 
@@ -163,12 +165,12 @@ export interface ClusterResult {
   skipped: number;
 }
 
-export async function clusterNewItems(): Promise<ClusterResult> {
+export async function clusterNewItems(maxItems: number = MAX_PER_RUN): Promise<ClusterResult> {
   const pool = await prisma.item.findMany({
     where: { storyId: null, skipped: false },
     include: { source: true },
     orderBy: [{ source: { weight: 'desc' } }, { publishedAt: 'desc' }],
-    take: MAX_PER_RUN,
+    take: maxItems,
   });
 
   if (pool.length === 0) return { created: 0, merged: 0, skipped: 0 };
@@ -212,7 +214,9 @@ export async function clusterNewItems(): Promise<ClusterResult> {
 
     let response: ClusterResponse;
     try {
-      response = await completeJson<ClusterResponse>(`${CLUSTER_PROMPT}\n${list}`);
+      response = await completeJson<ClusterResponse>(`${CLUSTER_PROMPT}\n${list}`, {
+        model: env.groqClusterModel,
+      });
     } catch (error) {
       console.error('Не удалось разобрать пачку материалов:', error);
       continue;

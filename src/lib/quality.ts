@@ -70,8 +70,29 @@ const RETELLING = [
   'перечислены',
 ];
 
+/**
+ * Оценки от лица канала. Заказчик хочет только факты: своё отношение
+ * он дописывает сам при вычитке, и подсунутая моделью реакция ему мешает.
+ */
+const OPINION = [
+  'красиво, конечно',
+  'красиво конечно',
+  'респект',
+  'вот это мощно',
+  'искреннее восхищение',
+  'we are so back',
+  'выглядит круто',
+  'это база',
+  'имхо',
+  'по-моему',
+  'честно говоря',
+  'нам кажется',
+  'считаем, что',
+  'не может не радовать',
+];
+
 export interface QualityIssue {
-  kind: 'banned' | 'retelling' | 'source-named' | 'too-long' | 'sales-pitch';
+  kind: 'banned' | 'retelling' | 'too-long' | 'sales-pitch' | 'opinion';
   detail: string;
 }
 
@@ -88,12 +109,27 @@ export function normalize(text: string): string {
     .replace(/\*\*(.+?)\*\*/g, '$1') // жирный
     .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$)/g, '$1$2') // курсив
     .replace(/^[-*]\s+/gm, '— ') // списки
+    .replace(/\p{Extended_Pictographic}/gu, '') // эмодзи
+    .replace(/[️⃣]/g, '') // хвосты составных эмодзи
+    // Строчные буквы и отсутствие эмодзи — часть узнаваемого вида канала.
+    // Держать их через промт ненадёжно: модель регулярно возвращает заголовочный
+    // регистр, даже когда это прямо запрещено. Поэтому оформление делаем кодом.
+    .toLowerCase()
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
-/** Ищет в тексте то, что делает его непригодным для канала. */
-export function findIssues(text: string, sourceNames: string[]): QualityIssue[] {
+/**
+ * Ищет в тексте то, что делает его непригодным для канала.
+ *
+ * Называть источник прямо в тексте здесь НЕ запрещено: каналы-ориентиры
+ * так и пишут — «риа новости пишут, что спрос вырос в 2,5 раза». Плохо
+ * не упоминание источника, а пересказ чужой статьи вместо новости, и это
+ * ловится отдельно.
+ */
+export function findIssues(text: string): QualityIssue[] {
   const lower = text.toLowerCase();
   const issues: QualityIssue[] = [];
 
@@ -123,16 +159,23 @@ export function findIssues(text: string, sourceNames: string[]): QualityIssue[] 
     });
   }
 
-  const named = sourceNames.filter((name) => name.length > 3 && lower.includes(name.toLowerCase()));
-  if (named.length > 0) {
+  const opinion = OPINION.filter((phrase) => lower.includes(phrase));
+  if (opinion.length > 0) {
     issues.push({
-      kind: 'source-named',
-      detail: `в тексте назван источник: ${named.join(', ')}`,
+      kind: 'opinion',
+      detail:
+        `в тексте оценка от лица канала (${opinion.join(', ')}). ` +
+        'Оставь только то, что произошло — отношение автор допишет сам',
     });
   }
 
-  if (text.length > 900) {
-    issues.push({ kind: 'too-long', detail: `${text.length} знаков вместо 600` });
+  // Верхняя планка с запасом: цель 80–300 знаков, но браковать текст на 320
+  // смысла нет — это всё ещё короткий пост.
+  if (text.length > 450) {
+    issues.push({
+      kind: 'too-long',
+      detail: `${text.length} знаков вместо 300. Оставь одну мысль, лишние подробности выбрось`,
+    });
   }
 
   return issues;

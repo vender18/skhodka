@@ -49,10 +49,11 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     'Напиши пост для канала по материалам ниже.',
     '',
     'Правила именно для этого текста:',
+    '— Всё строчными буквами, без эмодзи, без markdown.',
+    '— 80–300 знаков. Одна мысль, остальное выбрось.',
     '— Пиши только то, что есть в материалах. Ничего не додумывай.',
-    '— Не указывай источник внутри текста — ссылки добавятся отдельно.',
     '— Не пиши заголовок, только сам текст поста.',
-    '— Не используй markdown-разметку, только обычный текст.',
+    '— Без оценок и реакций от себя, только то, что произошло.',
     story.confidence === 'UNCONFIRMED'
       ? '— Новость пока не подтверждена вторым источником. Не утверждай её как факт: используй осторожные формулировки вроде «сообщает», «по данным».'
       : '',
@@ -66,14 +67,13 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     .join('\n');
 
   const system = draftSystemPrompt();
-  const sourceNames = [...new Set(story.items.map((i) => i.source.name))];
 
   let text = normalize(await complete(prompt, { system, temperature: 0.8 }));
 
   // Одна попытка исправиться с конкретным замечанием. Второй заход не делаем:
   // если модель не поняла с первого раза, дальше она обычно ломает текст сильнее,
   // а редактор всё равно вычитывает черновик перед публикацией.
-  const issues = findIssues(text, sourceNames);
+  const issues = findIssues(text);
   if (issues.length > 0) {
     console.log(`Переписываю «${story.title}»: ${issues.map((i) => i.detail).join('; ')}`);
     try {
@@ -84,7 +84,7 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
         }),
       );
       // Берём переписанный вариант, только если он действительно чище
-      if (findIssues(retry, sourceNames).length < issues.length) text = retry;
+      if (findIssues(retry).length < issues.length) text = retry;
     } catch (error) {
       console.warn('Переписать не удалось, оставляю первый вариант:', error);
     }

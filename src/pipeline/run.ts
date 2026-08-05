@@ -33,6 +33,17 @@ const DIGEST_SIZE = 8;
 const STORY_TTL_DAYS = 3;
 
 /**
+ * Сколько материалов разбираем за раз в каждом режиме.
+ *
+ * У Groq потолок 200 тысяч токенов в сутки на модель. Почасовой сбор идёт
+ * 24 раза в день, поэтому его порция маленькая — иначе суточный лимит
+ * заканчивается к обеду и вечерние новости остаются необработанными.
+ * Дайджест запускается трижды в день и может позволить себе больше.
+ */
+const COLLECT_BATCH = 36;
+const DIGEST_BATCH = 80;
+
+/**
  * Спорта в канале должно быть мало, поэтому в одну выдачу пускаем максимум
  * один спортивный сюжет. Без этой квоты спортивные ленты забивают выдачу:
  * матчи идут каждый день, а показы и релизы — нет.
@@ -137,7 +148,7 @@ async function runCollect(): Promise<void> {
     console.warn(`Лента не ответила — ${failure.source}: ${failure.error}`);
   }
 
-  const clustered = await clusterNewItems();
+  const clustered = await clusterNewItems(COLLECT_BATCH);
   console.log(
     `Инфоповодов: новых ${clustered.created}, дополнено ${clustered.merged}, отсеяно материалов ${clustered.skipped}`,
   );
@@ -189,7 +200,7 @@ async function runDigest(): Promise<void> {
 
   // Перед дайджестом добираем свежее, чтобы подборка была актуальной
   const collected = await collectAll();
-  const clustered = await clusterNewItems();
+  const clustered = await clusterNewItems(DIGEST_BATCH);
   console.log(`Добрано материалов: ${collected.added}, инфоповодов: ${clustered.created}`);
 
   const stories = await loadStories({ status: 'SCORED' }, DIGEST_SIZE);

@@ -31,6 +31,8 @@ export interface CompleteOptions {
   temperature?: number;
   /** Потолок длины ответа. Считается в общий лимит токенов за минуту. */
   maxTokens?: number;
+  /** Чем считать. По умолчанию — модель для написания текстов. */
+  model?: string;
 }
 
 const RETRIABLE = /429|rate|quota|timeout|ECONNRESET|503|500|overload/i;
@@ -65,7 +67,29 @@ async function tryGemini(prompt: string, options: CompleteOptions): Promise<stri
   return response.text ?? null;
 }
 
+/** Кончился суточный лимит именно этой модели — другая может быть свободна. */
+const DAILY_LIMIT = /tokens per day|TPD/i;
+
 async function tryGroq(prompt: string, options: CompleteOptions): Promise<string | null> {
+  const primary = options.model ?? env.groqModel;
+
+  try {
+    return await callGroq(primary, prompt, options);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (DAILY_LIMIT.test(message) && primary !== env.groqFallbackModel) {
+      console.warn(`У модели ${primary} кончился суточный лимит, беру ${env.groqFallbackModel}`);
+      return callGroq(env.groqFallbackModel, prompt, options);
+    }
+    throw error;
+  }
+}
+
+async function callGroq(
+  model: string,
+  prompt: string,
+  options: CompleteOptions,
+): Promise<string | null> {
   const client = groq();
   if (!client) return null;
 
@@ -75,7 +99,7 @@ async function tryGroq(prompt: string, options: CompleteOptions): Promise<string
   ];
 
   const base = {
-    model: env.groqModel,
+    model,
     temperature: options.temperature ?? 0.7,
     // Лимит бесплатного Groq — 8000 токенов в минуту на весь запрос вместе
     // с ответом. Просить больше бессмысленно: запрос отбивается целиком.
@@ -125,6 +149,12 @@ export async function complete(prompt: string, options: CompleteOptions = {}): P
         break;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // Суточный лимит за минуту не восстановится — ждать бессмысленно.
+        // К этому месту запасная модель уже пробовалась и тоже не сработала.
+        if (DAILY_LIMIT.test(message)) {
+          errors.push(`${name}: суточный лимит исчерпан`);
+          break;
+        }
         if (RETRIABLE.test(message) && attempt < 3) {
           // Лимит у Groq считается за минуту, поэтому ждать пару секунд
           // бесполезно — окно просто не успевает сдвинуться.
