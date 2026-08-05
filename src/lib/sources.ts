@@ -1,29 +1,27 @@
 /**
  * Источники, из которых агент собирает инфоповоды.
  *
- * ВАЖНО: каждая лента в этом списке проверена вручную и на момент добавления
- * отдавала рабочий RSS. Прежде чем добавлять новый источник, прогони
- * `npm run check-feeds` — мёртвая лента молча съедает время каждого запуска.
+ * Профиль канала — молодёжная культура: хип-хоп, стритвир и кроссовки, показы
+ * и модные дома, баскетбол и футбол как часть той же тусовки. Архитектуры и
+ * «высокой» культуры (выставки, музеи, театр) здесь намеренно нет: каналы-
+ * ориентиры такого не публикуют, а архитектурные ленты вдобавок забивали
+ * выдачу карточками частных домов.
+ *
+ * ВАЖНО: каждая лента проверена вручную и на момент добавления отдавала
+ * рабочий RSS. Перед добавлением новой прогоняй `npm run check-feeds` —
+ * мёртвая лента молча съедает время каждого запуска.
  *
  * tier — насколько источнику можно верить в одиночку:
- *   1 — авторитетное СМИ или официальный сайт. Ссылки на такой источник
- *       достаточно, чтобы выпустить серьёзную новость.
- *   2 — профильное издание. Для нишевой темы (мода, дизайн) его хватает,
- *       но громкую новость в одиночку не подтверждает.
- *   3 — агрегатор, инсайдер, слухи. Никогда не подтверждает новость сам по себе.
+ *   1 — авторитетное издание. Ссылки на него достаточно для громкой новости.
+ *   2 — профильное издание. Для своей темы его хватает, но громкую новость
+ *       в одиночку не подтверждает.
+ *   3 — агрегатор, инсайдер, слухи. Сам по себе не подтверждает ничего.
  *
- * weight — насколько охотно берём отсюда темы в канал (0–10).
- *   Влияет на отбор тем, но не на проверку фактов.
+ * weight — насколько охотно берём отсюда темы (0–10). Влияет на отбор, но
+ *   не на проверку фактов.
  */
 
-export type Category =
-  | 'CULTURE'
-  | 'ARCHITECTURE'
-  | 'CINEMA'
-  | 'MUSIC'
-  | 'FASHION'
-  | 'SPORT'
-  | 'GENERAL';
+export type Category = 'CINEMA' | 'MUSIC' | 'FASHION' | 'SPORT' | 'GENERAL';
 
 export type Region = 'RU' | 'WORLD';
 
@@ -39,99 +37,79 @@ export interface SourceDef {
 }
 
 export const SOURCES: SourceDef[] = [
-  // ─── Россия: культура, стиль, общее ──────────────────────────────────────
+  // ─── Хип-хоп и музыка ────────────────────────────────────────────────────
   {
-    slug: 'blueprint',
-    name: 'The Blueprint',
-    feedUrl: 'https://theblueprint.ru/rss',
-    siteUrl: 'https://theblueprint.ru',
-    category: 'FASHION',
-    region: 'RU',
+    slug: 'xxl',
+    name: 'XXL',
+    feedUrl: 'https://www.xxlmag.com/feed/',
+    siteUrl: 'https://www.xxlmag.com',
+    category: 'MUSIC',
+    region: 'WORLD',
     tier: 2,
     weight: 10,
   },
   {
-    slug: 'afisha-daily',
-    name: 'Афиша Daily',
-    feedUrl: 'https://daily.afisha.ru/rss/',
-    siteUrl: 'https://daily.afisha.ru',
-    category: 'CULTURE',
-    region: 'RU',
+    slug: 'hotnewhiphop',
+    name: 'HotNewHipHop',
+    feedUrl: 'https://www.hotnewhiphop.com/feed',
+    siteUrl: 'https://www.hotnewhiphop.com',
+    category: 'MUSIC',
+    region: 'WORLD',
     tier: 2,
     weight: 9,
   },
   {
-    slug: 'snob',
-    name: 'Сноб',
-    feedUrl: 'https://snob.ru/rss/',
-    siteUrl: 'https://snob.ru',
-    category: 'CULTURE',
-    region: 'RU',
+    slug: '2dopeboyz',
+    name: '2DOPEBOYZ',
+    feedUrl: 'https://2dopeboyz.com/feed/',
+    siteUrl: 'https://2dopeboyz.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 2,
+    weight: 7,
+  },
+  {
+    slug: 'billboard',
+    name: 'Billboard',
+    feedUrl: 'https://www.billboard.com/feed/',
+    siteUrl: 'https://www.billboard.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 1,
+    weight: 7,
+  },
+  {
+    slug: 'rolling-stone',
+    name: 'Rolling Stone',
+    feedUrl: 'https://www.rollingstone.com/feed/',
+    siteUrl: 'https://www.rollingstone.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 1,
+    weight: 7,
+  },
+  {
+    slug: 'pitchfork',
+    name: 'Pitchfork',
+    feedUrl: 'https://pitchfork.com/feed/feed-news/rss',
+    siteUrl: 'https://pitchfork.com',
+    category: 'MUSIC',
+    region: 'WORLD',
     tier: 2,
     weight: 6,
   },
   {
-    slug: 'kommersant-style',
-    name: 'Коммерсантъ Стиль',
-    feedUrl: 'https://www.kommersant.ru/RSS/section-style.xml',
-    siteUrl: 'https://www.kommersant.ru/style',
-    category: 'CULTURE',
-    region: 'RU',
-    tier: 1,
-    weight: 6,
-  },
-  {
-    slug: 'lenta-culture',
-    name: 'Лента.ру Культура',
-    feedUrl: 'https://lenta.ru/rss/news/culture',
-    siteUrl: 'https://lenta.ru/rubrics/culture/',
-    category: 'CULTURE',
-    region: 'RU',
-    tier: 1,
-    weight: 5,
-  },
-  {
-    slug: 'forbes-ru',
-    name: 'Forbes Russia',
-    feedUrl: 'https://www.forbes.ru/newrss.xml',
-    siteUrl: 'https://www.forbes.ru',
-    category: 'GENERAL',
-    region: 'RU',
-    tier: 1,
-    weight: 5,
-  },
-  {
-    slug: 'meduza',
-    name: 'Медуза',
-    feedUrl: 'https://meduza.io/rss/all',
-    siteUrl: 'https://meduza.io',
-    category: 'GENERAL',
-    region: 'RU',
-    tier: 1,
-    weight: 5,
-  },
-  {
-    slug: 'interfax',
-    name: 'Интерфакс',
-    feedUrl: 'https://www.interfax.ru/rss.asp',
-    siteUrl: 'https://www.interfax.ru',
-    category: 'GENERAL',
-    region: 'RU',
-    tier: 1,
-    weight: 3,
-  },
-  {
-    slug: 'tass',
-    name: 'ТАСС',
-    feedUrl: 'https://tass.ru/rss/v2.xml',
-    siteUrl: 'https://tass.ru',
-    category: 'GENERAL',
-    region: 'RU',
-    tier: 1,
-    weight: 3,
+    slug: 'nme',
+    name: 'NME',
+    feedUrl: 'https://www.nme.com/feed',
+    siteUrl: 'https://www.nme.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 2,
+    weight: 4,
   },
 
-  // ─── Мода, мир ───────────────────────────────────────────────────────────
+  // ─── Стритвир, кроссовки, мода ───────────────────────────────────────────
   {
     slug: 'hypebeast',
     name: 'Hypebeast',
@@ -153,6 +131,46 @@ export const SOURCES: SourceDef[] = [
     weight: 10,
   },
   {
+    slug: 'blueprint',
+    name: 'The Blueprint',
+    feedUrl: 'https://theblueprint.ru/rss',
+    siteUrl: 'https://theblueprint.ru',
+    category: 'FASHION',
+    region: 'RU',
+    tier: 2,
+    weight: 9,
+  },
+  {
+    slug: 'sneaker-news',
+    name: 'Sneaker News',
+    feedUrl: 'https://sneakernews.com/feed/',
+    siteUrl: 'https://sneakernews.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 2,
+    weight: 9,
+  },
+  {
+    slug: 'hypebae',
+    name: 'Hypebae',
+    feedUrl: 'https://hypebae.com/feed',
+    siteUrl: 'https://hypebae.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 2,
+    weight: 8,
+  },
+  {
+    slug: 'nice-kicks',
+    name: 'Nice Kicks',
+    feedUrl: 'https://www.nicekicks.com/feed/',
+    siteUrl: 'https://www.nicekicks.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 2,
+    weight: 8,
+  },
+  {
     slug: 'dazed',
     name: 'Dazed',
     feedUrl: 'https://www.dazeddigital.com/rss',
@@ -160,33 +178,13 @@ export const SOURCES: SourceDef[] = [
     category: 'FASHION',
     region: 'WORLD',
     tier: 2,
-    weight: 9,
+    weight: 8,
   },
   {
     slug: 'i-d',
     name: 'i-D',
     feedUrl: 'https://i-d.co/feed/',
     siteUrl: 'https://i-d.co',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 8,
-  },
-  {
-    slug: 'harpers-bazaar',
-    name: "Harper's Bazaar",
-    feedUrl: 'https://www.harpersbazaar.com/rss/all.xml',
-    siteUrl: 'https://www.harpersbazaar.com',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 8,
-  },
-  {
-    slug: 'gq',
-    name: 'GQ',
-    feedUrl: 'https://www.gq.com/feed/rss',
-    siteUrl: 'https://www.gq.com',
     category: 'FASHION',
     region: 'WORLD',
     tier: 2,
@@ -203,6 +201,46 @@ export const SOURCES: SourceDef[] = [
     weight: 7,
   },
   {
+    slug: 'gq',
+    name: 'GQ',
+    feedUrl: 'https://www.gq.com/feed/rss',
+    siteUrl: 'https://www.gq.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 2,
+    weight: 6,
+  },
+  {
+    slug: 'vogue',
+    name: 'Vogue',
+    feedUrl: 'https://www.vogue.com/feed/rss',
+    siteUrl: 'https://www.vogue.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 1,
+    weight: 6,
+  },
+  {
+    slug: 'wwd',
+    name: 'WWD',
+    feedUrl: 'https://wwd.com/feed/',
+    siteUrl: 'https://wwd.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 1,
+    weight: 5,
+  },
+  {
+    slug: 'harpers-bazaar',
+    name: "Harper's Bazaar",
+    feedUrl: 'https://www.harpersbazaar.com/rss/all.xml',
+    siteUrl: 'https://www.harpersbazaar.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 2,
+    weight: 5,
+  },
+  {
     slug: 'elle',
     name: 'Elle',
     feedUrl: 'https://www.elle.com/rss/all.xml',
@@ -210,158 +248,31 @@ export const SOURCES: SourceDef[] = [
     category: 'FASHION',
     region: 'WORLD',
     tier: 2,
+    weight: 4,
+  },
+
+  // ─── Баскетбол и футбол ──────────────────────────────────────────────────
+  // Нас интересует спорт как часть той же тусовки: форма, кроссовки, образы
+  // игроков, переходы уровня «об этом говорят все». Счета матчей — нет.
+  {
+    slug: 'boardroom',
+    name: 'Boardroom',
+    feedUrl: 'https://boardroom.tv/feed/',
+    siteUrl: 'https://boardroom.tv',
+    category: 'SPORT',
+    region: 'WORLD',
+    tier: 2,
     weight: 6,
   },
-
-  // ─── Музыка / хип-хоп ────────────────────────────────────────────────────
   {
-    slug: 'xxl',
-    name: 'XXL',
-    feedUrl: 'https://www.xxlmag.com/feed/',
-    siteUrl: 'https://www.xxlmag.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 2,
-    weight: 9,
-  },
-  {
-    slug: 'pitchfork',
-    name: 'Pitchfork',
-    feedUrl: 'https://pitchfork.com/feed/feed-news/rss',
-    siteUrl: 'https://pitchfork.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 2,
-    weight: 9,
-  },
-  {
-    slug: 'rolling-stone',
-    name: 'Rolling Stone',
-    feedUrl: 'https://www.rollingstone.com/feed/',
-    siteUrl: 'https://www.rollingstone.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 1,
-    weight: 8,
-  },
-  {
-    slug: 'billboard',
-    name: 'Billboard',
-    feedUrl: 'https://www.billboard.com/feed/',
-    siteUrl: 'https://www.billboard.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 1,
-    weight: 7,
-  },
-  {
-    slug: 'nme',
-    name: 'NME',
-    feedUrl: 'https://www.nme.com/feed',
-    siteUrl: 'https://www.nme.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 2,
-    weight: 7,
-  },
-
-  // ─── Кино ────────────────────────────────────────────────────────────────
-  {
-    slug: 'variety',
-    name: 'Variety',
-    feedUrl: 'https://variety.com/feed/',
-    siteUrl: 'https://variety.com',
-    category: 'CINEMA',
-    region: 'WORLD',
-    tier: 1,
-    weight: 9,
-  },
-  {
-    slug: 'hollywood-reporter',
-    name: 'The Hollywood Reporter',
-    feedUrl: 'https://www.hollywoodreporter.com/feed/',
-    siteUrl: 'https://www.hollywoodreporter.com',
-    category: 'CINEMA',
-    region: 'WORLD',
-    tier: 1,
-    weight: 8,
-  },
-  {
-    slug: 'deadline',
-    name: 'Deadline',
-    feedUrl: 'https://deadline.com/feed/',
-    siteUrl: 'https://deadline.com',
-    category: 'CINEMA',
-    region: 'WORLD',
-    tier: 1,
-    weight: 8,
-  },
-  {
-    slug: 'indiewire',
-    name: 'IndieWire',
-    feedUrl: 'https://www.indiewire.com/feed/',
-    siteUrl: 'https://www.indiewire.com',
-    category: 'CINEMA',
-    region: 'WORLD',
-    tier: 2,
-    weight: 8,
-  },
-
-  // ─── Архитектура и дизайн ────────────────────────────────────────────────
-  {
-    slug: 'dezeen',
-    name: 'Dezeen',
-    feedUrl: 'https://www.dezeen.com/feed/',
-    siteUrl: 'https://www.dezeen.com',
-    category: 'ARCHITECTURE',
-    region: 'WORLD',
-    tier: 2,
-    weight: 9,
-  },
-  {
-    // Вес занижен намеренно: ArchDaily по большей части каталог проектов —
-    // десятки описаний частных домов в день. Событий там мало, и без этого
-    // ограничения лента забивает выдачу карточками портфолио.
-    slug: 'archdaily',
-    name: 'ArchDaily',
-    feedUrl: 'https://www.archdaily.com/rss/',
-    siteUrl: 'https://www.archdaily.com',
-    category: 'ARCHITECTURE',
-    region: 'WORLD',
-    tier: 2,
-    weight: 4,
-  },
-  {
-    slug: 'designboom',
-    name: 'Designboom',
-    feedUrl: 'https://www.designboom.com/feed/',
-    siteUrl: 'https://www.designboom.com',
-    category: 'ARCHITECTURE',
-    region: 'WORLD',
-    tier: 2,
-    weight: 7,
-  },
-
-  // ─── Спорт: намеренно низкий вес, чтобы его было мало в канале ───────────
-  {
-    slug: 'formula1',
-    name: 'Formula 1',
-    feedUrl: 'https://www.formula1.com/en/latest/all.xml',
-    siteUrl: 'https://www.formula1.com',
-    category: 'SPORT',
-    region: 'WORLD',
-    tier: 1,
-    weight: 4,
-  },
-  {
-    slug: 'autosport-f1',
-    name: 'Autosport F1',
-    feedUrl: 'https://www.autosport.com/rss/f1/news/',
-    siteUrl: 'https://www.autosport.com/f1/',
+    slug: 'yahoo-nba',
+    name: 'Yahoo Sports NBA',
+    feedUrl: 'https://sports.yahoo.com/nba/rss.xml',
+    siteUrl: 'https://sports.yahoo.com/nba/',
     category: 'SPORT',
     region: 'WORLD',
     tier: 2,
-    weight: 3,
+    weight: 5,
   },
   {
     slug: 'guardian-nba',
@@ -371,6 +282,26 @@ export const SOURCES: SourceDef[] = [
     category: 'SPORT',
     region: 'WORLD',
     tier: 1,
+    weight: 5,
+  },
+  {
+    slug: 'footy-headlines',
+    name: 'Footy Headlines',
+    feedUrl: 'https://www.footyheadlines.com/feeds/posts/default',
+    siteUrl: 'https://www.footyheadlines.com',
+    category: 'SPORT',
+    region: 'WORLD',
+    tier: 2,
+    weight: 5,
+  },
+  {
+    slug: 'cbs-nba',
+    name: 'CBS Sports NBA',
+    feedUrl: 'https://www.cbssports.com/rss/headlines/nba/',
+    siteUrl: 'https://www.cbssports.com/nba/',
+    category: 'SPORT',
+    region: 'WORLD',
+    tier: 2,
     weight: 4,
   },
   {
@@ -381,51 +312,49 @@ export const SOURCES: SourceDef[] = [
     category: 'SPORT',
     region: 'WORLD',
     tier: 1,
-    weight: 3,
+    weight: 4,
   },
   {
-    slug: 'sports-ru',
-    name: 'Sports.ru',
-    feedUrl: 'https://www.sports.ru/rss/main.xml',
-    siteUrl: 'https://www.sports.ru',
+    slug: 'formula1',
+    name: 'Formula 1',
+    feedUrl: 'https://www.formula1.com/en/latest/all.xml',
+    siteUrl: 'https://www.formula1.com',
     category: 'SPORT',
-    region: 'RU',
-    tier: 2,
-    weight: 3,
-  },
-  {
-    slug: 'championat',
-    name: 'Чемпионат',
-    feedUrl: 'https://www.championat.com/rss/news/',
-    siteUrl: 'https://www.championat.com',
-    category: 'SPORT',
-    region: 'RU',
-    tier: 2,
+    region: 'WORLD',
+    tier: 1,
     weight: 3,
   },
 
-  // ─── Авторитетные ленты для сверки ───────────────────────────────────────
-  // Тем в канал дают мало, но именно на них агент опирается, когда нужно
-  // подтвердить громкую новость вторым независимым источником.
+  // ─── Кино: только громкое ────────────────────────────────────────────────
   {
-    slug: 'guardian-culture',
-    name: 'The Guardian',
-    feedUrl: 'https://www.theguardian.com/culture/rss',
-    siteUrl: 'https://www.theguardian.com/culture',
-    category: 'GENERAL',
+    slug: 'variety',
+    name: 'Variety',
+    feedUrl: 'https://variety.com/feed/',
+    siteUrl: 'https://variety.com',
+    category: 'CINEMA',
+    region: 'WORLD',
+    tier: 1,
+    weight: 6,
+  },
+  {
+    slug: 'deadline',
+    name: 'Deadline',
+    feedUrl: 'https://deadline.com/feed/',
+    siteUrl: 'https://deadline.com',
+    category: 'CINEMA',
     region: 'WORLD',
     tier: 1,
     weight: 5,
   },
   {
-    slug: 'bbc-entertainment',
-    name: 'BBC',
-    feedUrl: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml',
-    siteUrl: 'https://www.bbc.com/culture',
-    category: 'GENERAL',
+    slug: 'hollywood-reporter',
+    name: 'The Hollywood Reporter',
+    feedUrl: 'https://www.hollywoodreporter.com/feed/',
+    siteUrl: 'https://www.hollywoodreporter.com',
+    category: 'CINEMA',
     region: 'WORLD',
     tier: 1,
-    weight: 4,
+    weight: 5,
   },
 ];
 
@@ -436,16 +365,18 @@ export const SOURCES_BY_SLUG = new Map(SOURCES.map((s) => [s.slug, s]));
  * Держим списком, чтобы не проверять их заново каждые пару месяцев.
  */
 export const REJECTED_SOURCES = [
-  ['The Village', 'домен не отвечает вообще — ни RSS, ни сайт'],
+  ['Dezeen, ArchDaily, Designboom', 'архитектура убрана из профиля канала; ArchDaily вдобавок каталог частных домов, забивал выдачу'],
+  ['Афиша Daily, Сноб, Коммерсантъ Стиль, Лента, Медуза, ТАСС, Интерфакс, Forbes', '«высокая» культура и общие новости убраны из профиля'],
+  ['Sports.ru, Чемпионат, Autosport', 'рутинные результаты матчей, каналу не нужны'],
+  ['The Flow', 'домен не отвечает — русского хип-хоп издания с рабочим RSS найти не удалось'],
+  ['Complex', 'RSS выключен, сайт рендерится через JS'],
+  ['SLAM, HipHopDX, Sole Collector, SoccerBible', 'режут ботов или отдают 404/410'],
+  ['The Village', 'домен не отвечает вообще'],
   ['Wonderzine', 'сайт отдаёт 502'],
-  ['Vogue Business', 'блокирует ботов (403) + пейволл'],
-  ['Buro 24/7', 'RSS нет, сайт рендерится через JS'],
-  ['Правила жизни', 'RSS нет, сайт рендерится через JS'],
-  ['Собака.ru', 'RSS нет, сайт рендерится через JS'],
-  ['The Face', 'RSS нет, сайт рендерится через JS'],
-  ['Complex', 'RSS выключили, сайт рендерится через JS'],
+  ['Vogue Business', 'блокирует ботов + пейволл'],
+  ['Buro 24/7, Правила жизни, Собака.ru, The Face', 'RSS нет, сайты рендерятся через JS'],
   ['Кинопоиск', 'публичный RSS закрыт'],
-  ['IMDb', 'RSS нет и режет ботов; новости IMDb — перепечатки Variety/THR/Deadline, которые мы и так тянем напрямую'],
-  ['ESPN', 'режет ботов (пустой 202); NBA берём через Guardian'],
+  ['IMDb', 'RSS нет и режет ботов; его новости — перепечатки Variety/THR/Deadline'],
+  ['ESPN', 'режет ботов; NBA берём через Yahoo, CBS и Guardian'],
   ['Reuters', 'публичные RSS закрыты в 2020'],
 ] as const;
