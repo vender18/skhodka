@@ -177,10 +177,10 @@ export function findIssues(text: string): QualityIssue[] {
     });
   }
 
-  if (text.length > 700) {
+  if (text.length > 500) {
     issues.push({
       kind: 'too-long',
-      detail: `${text.length} знаков вместо 500. Оставь только суть`,
+      detail: `${text.length} знаков вместо 350. Оставь суть, подробности выбрось`,
     });
   }
 
