@@ -72,19 +72,91 @@ async function ogImage(pageUrl: string): Promise<string | null> {
   }
 }
 
-/** Просит модель придумать короткий английский запрос для стокового поиска. */
-async function stockQuery(story: Story): Promise<string> {
+/**
+ * Определяет, кто или что является героем новости — человек, группа или бренд.
+ * Именно по нему потом ищется фотография, если своей у новости нет.
+ */
+async function mainSubject(story: Story): Promise<string> {
   try {
     const answer = await complete(
       `Новость: ${story.title}\n${story.gist}\n\n` +
-        'Придумай запрос из 2–4 английских слов для поиска фотографии к этой новости ' +
-        'в фотостоке. Если новость про конкретного человека — просто его имя. ' +
-        'Если про бренд — название бренда. Ответь только запросом, без кавычек и пояснений.',
-      { temperature: 0.3 },
+        'Назови главного героя этой новости: имя человека, название группы или бренда. ' +
+        'Пиши на английском и ровно так, как это принято писать в оригинале ' +
+        '(например Max Verstappen, Playboi Carti, Balenciaga). ' +
+        'Ответь только именем, без кавычек, пояснений и лишних слов.',
+      { temperature: 0.1, maxTokens: 40 },
     );
-    return answer.trim().replace(/["'\n]/g, '').slice(0, 60);
+    return answer.trim().replace(/["'.\n]/g, '').slice(0, 60);
   } catch {
-    return story.title.slice(0, 60);
+    return '';
+  }
+}
+
+/**
+ * Фотография героя новости из Википедии.
+ *
+ * Это главный запасной вариант: если про Ферстаппена вышла новость без
+ * иллюстрации, к ней логично приложить просто его фотографию. Фотостоки
+ * так не умеют — они отдадут безликого «гонщика в шлеме».
+ */
+async function wikipediaPhoto(subject: string): Promise<Photo | null> {
+  if (!subject) return null;
+
+  for (const lang of ['en', 'ru']) {
+    try {
+      const title = encodeURIComponent(subject.replace(/\s+/g, '_'));
+      const response = await fetch(
+        `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${title}`,
+        { headers: { 'User-Agent': 'skhodka-bot/1.0' }, signal: AbortSignal.timeout(12_000) },
+      );
+      if (!response.ok) continue;
+
+      const data = (await response.json()) as {
+        originalimage?: { source?: string };
+        thumbnail?: { source?: string };
+        type?: string;
+      };
+      if (data.type === 'disambiguation') continue;
+
+      const url = data.originalimage?.source ?? data.thumbnail?.source;
+      if (!url) continue;
+
+      // Логотипы и подписи в векторе как иллюстрация не годятся: у Travis Scott
+      // первой картинкой идёт svg с автографом.
+      if (/\.svg(\?|$)/i.test(url)) continue;
+
+      return { url, credit: `Wikimedia Commons — ${subject}` };
+    } catch {
+      /* пробуем следующий язык */
+    }
+  }
+  return null;
+}
+
+/** Свободные фотографии по теме — на случай, когда героя в Википедии нет. */
+async function openversePhoto(query: string): Promise<Photo | null> {
+  if (!query) return null;
+  try {
+    const url = new URL('https://api.openverse.org/v1/images/');
+    url.searchParams.set('q', query);
+    url.searchParams.set('page_size', '1');
+    url.searchParams.set('license_type', 'all');
+
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'skhodka-bot/1.0' },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      results?: { url?: string; title?: string }[];
+    };
+    const first = data.results?.[0];
+    if (!first?.url || /\.svg(\?|$)/i.test(first.url)) return null;
+
+    return { url: first.url, credit: `Openverse — по запросу «${query}»` };
+  } catch {
+    return null;
   }
 }
 
@@ -160,21 +232,26 @@ export async function findPhoto(story: Story, items: ItemWithSource[]): Promise<
     }
   }
 
-  // 3. Сток по теме — только если ключи заданы
+  // 3. Своей картинки нет — ищем фото самого героя новости.
+  // Ключи для стоков не нужны: Википедия и Openverse открыты.
+  const subject = await mainSubject(story);
+
+  const fromWiki = await wikipediaPhoto(subject);
+  if (fromWiki && (await isUsableImage(fromWiki.url))) return fromWiki;
+
   const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
   const pexelsKey = process.env.PEXELS_API_KEY;
-  if (!unsplashKey && !pexelsKey) return null;
-
-  const query = await stockQuery(story);
-
   if (unsplashKey) {
-    const photo = await searchUnsplash(query, unsplashKey);
+    const photo = await searchUnsplash(subject || story.title, unsplashKey);
     if (photo) return photo;
   }
   if (pexelsKey) {
-    const photo = await searchPexels(query, pexelsKey);
+    const photo = await searchPexels(subject || story.title, pexelsKey);
     if (photo) return photo;
   }
+
+  const fromOpenverse = await openversePhoto(subject);
+  if (fromOpenverse && (await isUsableImage(fromOpenverse.url))) return fromOpenverse;
 
   return null;
 }

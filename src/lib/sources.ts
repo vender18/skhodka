@@ -2,10 +2,17 @@
  * Источники, из которых агент собирает инфоповоды.
  *
  * Профиль канала — молодёжная культура: хип-хоп, стритвир и кроссовки, показы
- * и модные дома, баскетбол и футбол как часть той же тусовки. Архитектуры и
- * «высокой» культуры (выставки, музеи, театр) здесь намеренно нет: каналы-
- * ориентиры такого не публикуют, а архитектурные ленты вдобавок забивали
- * выдачу карточками частных домов.
+ * и модные дома, баскетбол и футбол как часть той же тусовки.
+ *
+ * Список намеренно КОРОТКИЙ и состоит только из крупных изданий. Раньше лент
+ * было 37, включая нишевые, и через них в выдачу лезли проходные новости,
+ * о которых никто не говорит. Мелкое издание пишет обо всём подряд, крупное
+ * — только о том, что действительно заметно, и это лучший фильтр качества,
+ * чем любые правила отбора.
+ *
+ * Архитектуры и «высокой» культуры здесь нет: каналы-ориентиры такого не
+ * публикуют, а архитектурные ленты вдобавок забивали выдачу карточками
+ * частных домов.
  *
  * ВАЖНО: каждая лента проверена вручную и на момент добавления отдавала
  * рабочий RSS. Перед добавлением новой прогоняй `npm run check-feeds` —
@@ -49,26 +56,6 @@ export const SOURCES: SourceDef[] = [
     weight: 10,
   },
   {
-    slug: 'hotnewhiphop',
-    name: 'HotNewHipHop',
-    feedUrl: 'https://www.hotnewhiphop.com/feed',
-    siteUrl: 'https://www.hotnewhiphop.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 2,
-    weight: 9,
-  },
-  {
-    slug: '2dopeboyz',
-    name: '2DOPEBOYZ',
-    feedUrl: 'https://2dopeboyz.com/feed/',
-    siteUrl: 'https://2dopeboyz.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 2,
-    weight: 7,
-  },
-  {
     slug: 'billboard',
     name: 'Billboard',
     feedUrl: 'https://www.billboard.com/feed/',
@@ -97,16 +84,6 @@ export const SOURCES: SourceDef[] = [
     region: 'WORLD',
     tier: 2,
     weight: 6,
-  },
-  {
-    slug: 'nme',
-    name: 'NME',
-    feedUrl: 'https://www.nme.com/feed',
-    siteUrl: 'https://www.nme.com',
-    category: 'MUSIC',
-    region: 'WORLD',
-    tier: 2,
-    weight: 4,
   },
 
   // ─── Стритвир, кроссовки, мода ───────────────────────────────────────────
@@ -141,36 +118,6 @@ export const SOURCES: SourceDef[] = [
     weight: 9,
   },
   {
-    slug: 'sneaker-news',
-    name: 'Sneaker News',
-    feedUrl: 'https://sneakernews.com/feed/',
-    siteUrl: 'https://sneakernews.com',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 9,
-  },
-  {
-    slug: 'hypebae',
-    name: 'Hypebae',
-    feedUrl: 'https://hypebae.com/feed',
-    siteUrl: 'https://hypebae.com',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 8,
-  },
-  {
-    slug: 'nice-kicks',
-    name: 'Nice Kicks',
-    feedUrl: 'https://www.nicekicks.com/feed/',
-    siteUrl: 'https://www.nicekicks.com',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 8,
-  },
-  {
     slug: 'dazed',
     name: 'Dazed',
     feedUrl: 'https://www.dazeddigital.com/rss',
@@ -179,16 +126,6 @@ export const SOURCES: SourceDef[] = [
     region: 'WORLD',
     tier: 2,
     weight: 8,
-  },
-  {
-    slug: 'i-d',
-    name: 'i-D',
-    feedUrl: 'https://i-d.co/feed/',
-    siteUrl: 'https://i-d.co',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 7,
   },
   {
     slug: 'business-of-fashion',
@@ -221,16 +158,6 @@ export const SOURCES: SourceDef[] = [
     weight: 6,
   },
   {
-    slug: 'wwd',
-    name: 'WWD',
-    feedUrl: 'https://wwd.com/feed/',
-    siteUrl: 'https://wwd.com',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 1,
-    weight: 5,
-  },
-  {
     slug: 'harpers-bazaar',
     name: "Harper's Bazaar",
     feedUrl: 'https://www.harpersbazaar.com/rss/all.xml',
@@ -240,40 +167,10 @@ export const SOURCES: SourceDef[] = [
     tier: 2,
     weight: 5,
   },
-  {
-    slug: 'elle',
-    name: 'Elle',
-    feedUrl: 'https://www.elle.com/rss/all.xml',
-    siteUrl: 'https://www.elle.com',
-    category: 'FASHION',
-    region: 'WORLD',
-    tier: 2,
-    weight: 4,
-  },
 
   // ─── Баскетбол и футбол ──────────────────────────────────────────────────
   // Нас интересует спорт как часть той же тусовки: форма, кроссовки, образы
   // игроков, переходы уровня «об этом говорят все». Счета матчей — нет.
-  {
-    slug: 'boardroom',
-    name: 'Boardroom',
-    feedUrl: 'https://boardroom.tv/feed/',
-    siteUrl: 'https://boardroom.tv',
-    category: 'SPORT',
-    region: 'WORLD',
-    tier: 2,
-    weight: 6,
-  },
-  {
-    slug: 'yahoo-nba',
-    name: 'Yahoo Sports NBA',
-    feedUrl: 'https://sports.yahoo.com/nba/rss.xml',
-    siteUrl: 'https://sports.yahoo.com/nba/',
-    category: 'SPORT',
-    region: 'WORLD',
-    tier: 2,
-    weight: 5,
-  },
   {
     slug: 'guardian-nba',
     name: 'The Guardian NBA',
@@ -285,26 +182,6 @@ export const SOURCES: SourceDef[] = [
     weight: 5,
   },
   {
-    slug: 'footy-headlines',
-    name: 'Footy Headlines',
-    feedUrl: 'https://www.footyheadlines.com/feeds/posts/default',
-    siteUrl: 'https://www.footyheadlines.com',
-    category: 'SPORT',
-    region: 'WORLD',
-    tier: 2,
-    weight: 5,
-  },
-  {
-    slug: 'cbs-nba',
-    name: 'CBS Sports NBA',
-    feedUrl: 'https://www.cbssports.com/rss/headlines/nba/',
-    siteUrl: 'https://www.cbssports.com/nba/',
-    category: 'SPORT',
-    region: 'WORLD',
-    tier: 2,
-    weight: 4,
-  },
-  {
     slug: 'guardian-football',
     name: 'The Guardian Football',
     feedUrl: 'https://www.theguardian.com/football/rss',
@@ -313,16 +190,6 @@ export const SOURCES: SourceDef[] = [
     region: 'WORLD',
     tier: 1,
     weight: 4,
-  },
-  {
-    slug: 'formula1',
-    name: 'Formula 1',
-    feedUrl: 'https://www.formula1.com/en/latest/all.xml',
-    siteUrl: 'https://www.formula1.com',
-    category: 'SPORT',
-    region: 'WORLD',
-    tier: 1,
-    weight: 3,
   },
 
   // ─── Кино: только громкое ────────────────────────────────────────────────
@@ -335,26 +202,6 @@ export const SOURCES: SourceDef[] = [
     region: 'WORLD',
     tier: 1,
     weight: 6,
-  },
-  {
-    slug: 'deadline',
-    name: 'Deadline',
-    feedUrl: 'https://deadline.com/feed/',
-    siteUrl: 'https://deadline.com',
-    category: 'CINEMA',
-    region: 'WORLD',
-    tier: 1,
-    weight: 5,
-  },
-  {
-    slug: 'hollywood-reporter',
-    name: 'The Hollywood Reporter',
-    feedUrl: 'https://www.hollywoodreporter.com/feed/',
-    siteUrl: 'https://www.hollywoodreporter.com',
-    category: 'CINEMA',
-    region: 'WORLD',
-    tier: 1,
-    weight: 5,
   },
 ];
 
@@ -377,6 +224,10 @@ export const REJECTED_SOURCES = [
   ['Buro 24/7, Правила жизни, Собака.ru, The Face', 'RSS нет, сайты рендерятся через JS'],
   ['Кинопоиск', 'публичный RSS закрыт'],
   ['IMDb', 'RSS нет и режет ботов; его новости — перепечатки Variety/THR/Deadline'],
-  ['ESPN', 'режет ботов; NBA берём через Yahoo, CBS и Guardian'],
-  ['Reuters', 'публичные RSS закрыты в 2020'],
+  ['ESPN', 'режет ботов; NBA берём через Guardian'],
+  ['Reuters', 'публичные RSS закрыты, api отдаёт 401 — подключить нельзя'],
+  ['AP News', 'RSS-хаба больше нет, отдаёт 404'],
+  ['People, Entertainment Weekly', 'лента за платной стеной, отдаёт 402'],
+  ['HotNewHipHop, 2DOPEBOYZ, Sneaker News, Nice Kicks, Hypebae, Footy Headlines, Boardroom, Yahoo NBA, CBS NBA, WWD, Elle, i-D, NME',
+   'работают, но нишевые: через них лезли проходные новости. Список сокращён до крупных изданий сознательно'],
 ] as const;

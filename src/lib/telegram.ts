@@ -52,21 +52,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   GENERAL: 'разное',
 };
 
-/** Собирает служебный блок под текстом поста. */
-function meta(draft: DraftPayload): string {
+/**
+ * Собирает карточку новости: заголовок, суть, источники, подпись к фото.
+ *
+ * Это справка редактору, а не готовый пост: он читает суть, решает, брать
+ * тему или нет, и пишет текст сам.
+ */
+function card(draft: DraftPayload): string {
   const lines: string[] = [];
 
-  const category = CATEGORY_LABELS[draft.category] ?? draft.category.toLowerCase();
-  lines.push(
-    `<i>${category} · важность ${draft.importance}/5 · срочность ${draft.urgency}/5</i>`,
-  );
-
   if (draft.confidence === 'UNCONFIRMED') {
-    lines.push('⚠️ <b>НЕ ПОДТВЕРЖДЕНО</b> — публиковать только на свой риск');
+    lines.push('⚠️ <b>НЕ ПОДТВЕРЖДЕНО</b>');
   }
-  if (draft.confidenceNote) {
-    lines.push(`<i>${escapeHtml(draft.confidenceNote)}</i>`);
-  }
+
+  lines.push(`<b>${escapeHtml(draft.title)}</b>`, '', escapeHtml(draft.text), '');
 
   const sources = draft.sources
     .slice(0, 4)
@@ -74,21 +73,25 @@ function meta(draft: DraftPayload): string {
     .join(' · ');
   if (sources) lines.push(`Источники: ${sources}`);
 
-  if (draft.imageCredit) lines.push(`<i>Фото: ${escapeHtml(draft.imageCredit)}</i>`);
+  const category = CATEGORY_LABELS[draft.category] ?? draft.category.toLowerCase();
+  const credit = draft.imageCredit ? ` · фото: ${escapeHtml(draft.imageCredit)}` : '';
+  lines.push(`<i>${category} · важность ${draft.importance}/5${credit}</i>`);
 
   return lines.join('\n');
 }
 
 /**
- * Присылает один черновик. Текст поста идёт отдельным сообщением без разметки,
- * чтобы его можно было скопировать целиком и сразу вставить в канал.
+ * Присылает карточку новости с фотографией.
+ *
+ * Фото идёт первым и почти всегда есть: если своей картинки у новости нет,
+ * подбирается фотография её героя. Пост без картинки в таком канале не нужен,
+ * поэтому иллюстрация важнее текста.
  */
 export async function sendDraft(draft: DraftPayload): Promise<number> {
-  const body = `${escapeHtml(draft.text)}\n\n${meta(draft)}`;
+  const body = card(draft);
 
   if (draft.imageUrl) {
     try {
-      // Если текст с подписью не влезает в лимит, шлём фото отдельно
       if (body.length <= CAPTION_LIMIT) {
         const result = await call<{ message_id: number }>('sendPhoto', {
           chat_id: env.editorChatId,
@@ -99,9 +102,10 @@ export async function sendDraft(draft: DraftPayload): Promise<number> {
         return result.message_id;
       }
 
+      // Подпись не влезла в лимит Telegram — шлём фото и текст по отдельности
       await call('sendPhoto', { chat_id: env.editorChatId, photo: draft.imageUrl });
     } catch (error) {
-      // Картинка не критична — если Telegram её не принял, отправим хотя бы текст
+      // Картинка не критична настолько, чтобы терять новость целиком
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`Не удалось отправить фото (${draft.imageUrl}): ${message}`);
     }
