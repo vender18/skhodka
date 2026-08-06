@@ -283,7 +283,8 @@ export async function findPhotos(
 
   // Кадры из твоей доски Pinterest по теме новости. Идут раньше стоков:
   // это отобранная вручную эстетика, а не выдача поисковика.
-  for (const photo of await boardPhotos(story.category, limit - found.length)) {
+  const about = `${story.title} ${story.subject ?? ''} ${story.gist}`;
+  for (const photo of await boardPhotos(story.category, about, limit - found.length)) {
     await add(photo);
   }
 
