@@ -1,6 +1,7 @@
 import Parser from 'rss-parser';
 import { prisma } from './db.js';
 import { prefilterReason } from './prefilter.js';
+import { fetchTelegramChannel } from './telegram-source.js';
 import type { Source } from '@prisma/client';
 
 /**
@@ -99,7 +100,55 @@ function stripHtml(input: string | undefined): string | null {
   return text ? text.slice(0, 1200) : null;
 }
 
+/** Общая запись материала в базу — одинаковая для лент и телеграм-каналов. */
+async function saveItem(
+  source: Source,
+  data: { url: string; title: string; summary: string | null; imageUrl: string | null; publishedAt: Date },
+): Promise<number> {
+  // Очевидно неподходящее помечаем сразу: до модели такой материал не дойдёт
+  // и не съест лимит токенов, но в базе останется — вдруг понадобится для сверки.
+  const rejected = prefilterReason(data.title, data.summary);
+
+  // createMany со skipDuplicates дешевле, чем сначала искать, потом писать:
+  // уникальный индекс по url сам отсекает повторы между запусками.
+  const result = await prisma.item.createMany({
+    data: [
+      {
+        sourceId: source.id,
+        url: data.url,
+        title: data.title.slice(0, 500),
+        summary: data.summary,
+        imageUrl: data.imageUrl,
+        publishedAt: data.publishedAt,
+        skipped: rejected !== null,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  return result.count;
+}
+
+async function collectFromTelegram(source: Source): Promise<number> {
+  const cutoff = Date.now() - MAX_AGE_HOURS * 60 * 60 * 1000;
+  const posts = await fetchTelegramChannel(source.feedUrl);
+
+  let added = 0;
+  let taken = 0;
+
+  for (const post of posts.reverse()) {
+    if (taken >= MAX_ITEMS_PER_SOURCE) break;
+    if (post.publishedAt.getTime() < cutoff) continue;
+    taken += 1;
+    added += await saveItem(source, post);
+  }
+
+  return added;
+}
+
 async function collectFromSource(source: Source): Promise<number> {
+  if (source.kind === 'telegram') return collectFromTelegram(source);
+
   const feed = await parser.parseURL(source.feedUrl);
   const cutoff = Date.now() - MAX_AGE_HOURS * 60 * 60 * 1000;
 
@@ -123,31 +172,13 @@ async function collectFromSource(source: Source): Promise<number> {
 
     taken += 1;
 
-    const url = canonicalUrl(link);
-    const summary = stripHtml(entry.contentSnippet ?? entry.content ?? entry.summary);
-
-    // Очевидно неподходящее помечаем сразу: до модели такой материал не дойдёт
-    // и не съест лимит токенов, но в базе останется — вдруг понадобится для сверки.
-    const rejected = prefilterReason(title, summary);
-
-    // createMany со skipDuplicates дешевле, чем сначала искать, потом писать:
-    // уникальный индекс по url сам отсекает повторы между запусками.
-    const result = await prisma.item.createMany({
-      data: [
-        {
-          sourceId: source.id,
-          url,
-          title: title.slice(0, 500),
-          summary,
-          imageUrl: extractImage(entry as unknown as Record<string, unknown>),
-          publishedAt,
-          skipped: rejected !== null,
-        },
-      ],
-      skipDuplicates: true,
+    added += await saveItem(source, {
+      url: canonicalUrl(link),
+      title,
+      summary: stripHtml(entry.contentSnippet ?? entry.content ?? entry.summary),
+      imageUrl: extractImage(entry as unknown as Record<string, unknown>),
+      publishedAt,
     });
-
-    added += result.count;
   }
 
   return added;

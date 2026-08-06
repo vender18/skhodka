@@ -40,6 +40,8 @@ model Source {
   id       String   @id @default(cuid())
   slug     String   @unique
   name     String
+  /// 'rss' — обычная лента, 'telegram' — публичный канал через t.me/s/<имя>
+  kind     String   @default("rss")
   feedUrl  String
   siteUrl  String
   category Category

@@ -326,7 +326,8 @@ export async function clusterNewItems(maxItems: number = MAX_PER_RUN): Promise<C
  *
  * Поэтому:
  *   — авторитетное издание (tier 1) подтверждает всегда;
- *   — два независимых издания подтверждают всегда;
+ *   — два независимых издания подтверждают, если хотя бы одно из них не
+ *     телеграм-канал: два канала, перепечатавших один слух, — это не сверка;
  *   — одно профильное издание подтверждает только рядовую новость своей темы.
  */
 const SERIOUS_IMPORTANCE = 4;
@@ -357,7 +358,7 @@ export async function applyConfidence(storyId: string): Promise<void> {
   if (tierOne.length > 0) {
     confidence = 'CONFIRMED';
     note = `Подтверждает авторитетный источник: ${tierOne.map((s) => s.name).join(', ')}`;
-  } else if (sources.length >= 2) {
+  } else if (sources.length >= 2 && sources.some((s) => s.tier <= 2)) {
     confidence = 'CONFIRMED';
     note = `Совпадает у нескольких изданий: ${names}`;
   } else if (

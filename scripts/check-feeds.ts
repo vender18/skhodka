@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import { SOURCES } from '../src/lib/sources.js';
+import { fetchTelegramChannel } from '../src/lib/telegram-source.js';
 
 /**
  * Проверяет, что все ленты из sources.ts живы.
@@ -21,8 +22,10 @@ async function main(): Promise<void> {
   await Promise.all(
     SOURCES.map(async (source) => {
       try {
-        const feed = await parser.parseURL(source.feedUrl);
-        const count = feed.items?.length ?? 0;
+        const count =
+          source.kind === 'telegram'
+            ? (await fetchTelegramChannel(source.feedUrl)).length
+            : ((await parser.parseURL(source.feedUrl)).items?.length ?? 0);
         if (count === 0) {
           broken.push(source.slug);
           console.log(`ПУСТО   ${source.name} — лента открылась, но материалов нет`);

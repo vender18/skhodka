@@ -35,6 +35,8 @@ export type Region = 'RU' | 'WORLD';
 export interface SourceDef {
   slug: string;
   name: string;
+  /** 'rss' — обычная лента; 'telegram' — публичный канал, feedUrl это его имя */
+  kind?: 'rss' | 'telegram';
   feedUrl: string;
   siteUrl: string;
   category: Category;
@@ -202,6 +204,141 @@ export const SOURCES: SourceDef[] = [
     region: 'WORLD',
     tier: 1,
     weight: 6,
+  },
+
+  // ─── Рэп-новости: релизы, бифы, что происходит с артистами ───────────────
+  {
+    slug: 'hotnewhiphop',
+    name: 'HotNewHipHop',
+    feedUrl: 'https://www.hotnewhiphop.com/feed',
+    siteUrl: 'https://www.hotnewhiphop.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 2,
+    weight: 9,
+  },
+  {
+    slug: 'the-source',
+    name: 'The Source',
+    feedUrl: 'https://thesource.com/feed/',
+    siteUrl: 'https://thesource.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 2,
+    weight: 7,
+  },
+  {
+    slug: 'vibe',
+    name: 'Vibe',
+    feedUrl: 'https://www.vibe.com/feed/',
+    siteUrl: 'https://www.vibe.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 2,
+    weight: 7,
+  },
+  {
+    slug: 'allhiphop',
+    name: 'AllHipHop',
+    feedUrl: 'https://allhiphop.com/feed/',
+    siteUrl: 'https://allhiphop.com',
+    category: 'MUSIC',
+    region: 'WORLD',
+    tier: 2,
+    weight: 6,
+  },
+
+  // ─── Кроссовки и спорт как стиль ─────────────────────────────────────────
+  {
+    slug: 'sneaker-freaker',
+    name: 'Sneaker Freaker',
+    feedUrl: 'https://www.sneakerfreaker.com/rss.xml',
+    siteUrl: 'https://www.sneakerfreaker.com',
+    category: 'FASHION',
+    region: 'WORLD',
+    tier: 2,
+    weight: 8,
+  },
+  {
+    slug: 'boardroom',
+    name: 'Boardroom',
+    feedUrl: 'https://boardroom.tv/feed/',
+    siteUrl: 'https://boardroom.tv',
+    category: 'SPORT',
+    region: 'WORLD',
+    tier: 2,
+    weight: 6,
+  },
+
+  // ─── Телеграм-каналы: радар повестки ─────────────────────────────────────
+  // Все третьего уровня и с низким весом. Они показывают, о чём СЕЙЧАС
+  // говорят — особенно на русской сцене, которой в RSS почти нет, — но
+  // новость сами не подтверждают: для этого нужен нормальный источник.
+  {
+    slug: 'tg-nocap',
+    name: 'No Cap',
+    kind: 'telegram',
+    feedUrl: 'nocap',
+    siteUrl: 'https://t.me/nocap',
+    category: 'MUSIC',
+    region: 'RU',
+    tier: 3,
+    weight: 6,
+  },
+  {
+    slug: 'tg-theflow',
+    name: 'The Flow',
+    kind: 'telegram',
+    feedUrl: 'superslowflow',
+    siteUrl: 'https://t.me/superslowflow',
+    category: 'MUSIC',
+    region: 'RU',
+    tier: 3,
+    weight: 6,
+  },
+  {
+    slug: 'tg-fmlmatters',
+    name: 'FML MATTERS',
+    kind: 'telegram',
+    feedUrl: 'fmlmttrs',
+    siteUrl: 'https://t.me/fmlmttrs',
+    category: 'MUSIC',
+    region: 'RU',
+    tier: 3,
+    weight: 5,
+  },
+  {
+    slug: 'tg-musiccore',
+    name: 'Music Core',
+    kind: 'telegram',
+    feedUrl: 'themusiccore',
+    siteUrl: 'https://t.me/themusiccore',
+    category: 'MUSIC',
+    region: 'RU',
+    tier: 3,
+    weight: 5,
+  },
+  {
+    slug: 'tg-sportcore',
+    name: 'Sport Core',
+    kind: 'telegram',
+    feedUrl: 'thesportcore',
+    siteUrl: 'https://t.me/thesportcore',
+    category: 'SPORT',
+    region: 'RU',
+    tier: 3,
+    weight: 6,
+  },
+  {
+    slug: 'tg-ame',
+    name: 'ame',
+    kind: 'telegram',
+    feedUrl: 'amemagazine',
+    siteUrl: 'https://t.me/amemagazine',
+    category: 'FASHION',
+    region: 'RU',
+    tier: 3,
+    weight: 5,
   },
 ];
 

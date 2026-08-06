@@ -16,6 +16,7 @@ async function main(): Promise<void> {
       create: {
         slug: source.slug,
         name: source.name,
+        kind: source.kind ?? 'rss',
         feedUrl: source.feedUrl,
         siteUrl: source.siteUrl,
         category: source.category,
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
       },
       update: {
         name: source.name,
+        kind: source.kind ?? 'rss',
         feedUrl: source.feedUrl,
         siteUrl: source.siteUrl,
         category: source.category,
