@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { complete } from './llm.js';
+import { boardPhotos } from './pinterest.js';
 import type { Item, Source, Story } from '@prisma/client';
 
 /**
@@ -276,6 +277,14 @@ export async function findPhotos(
     if (found.length >= limit) break;
     const og = await ogImage(item.url);
     if (og) await add({ url: og, credit: item.source.name });
+  }
+
+  if (found.length >= limit) return found;
+
+  // Кадры из твоей доски Pinterest по теме новости. Идут раньше стоков:
+  // это отобранная вручную эстетика, а не выдача поисковика.
+  for (const photo of await boardPhotos(story.category, limit - found.length)) {
+    await add(photo);
   }
 
   if (found.length >= limit) return found;
