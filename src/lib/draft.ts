@@ -1,6 +1,6 @@
 import { prisma } from './db.js';
 import { complete } from './llm.js';
-import { findPhoto } from './photo.js';
+import { findPhotos } from './photo.js';
 import { normalize, findIssues, rewriteInstruction } from './quality.js';
 
 /**
@@ -19,10 +19,11 @@ import { normalize, findIssues, rewriteInstruction } from './quality.js';
 const MAX_SOURCE_CHARS = 4000;
 
 const SUMMARY_SYSTEM =
-  'Ты — новостной редактор. Пересказываешь новости коротко, точно и без ' +
-  'украшательств. Никогда не добавляешь фактов, которых нет в исходных ' +
-  'материалах. ВСЕГДА отвечаешь на русском языке, даже если исходники ' +
-  'на английском: твоя задача — перевести и сжать, а не пересказать дословно.';
+  'Ты — редактор телеграм-канала про хип-хоп, стритвир и нба. Пересказываешь ' +
+  'новости коротко и живым разговорным языком, как рассказал бы приятелю, ' +
+  'который в теме. Никогда не добавляешь фактов, которых нет в исходных ' +
+  'материалах. ВСЕГДА отвечаешь по-русски, но термины тусовки (tunnel fit, ' +
+  'дроп, коллаба, сниппет, биф) оставляешь как есть — их так и говорят.';
 
 export interface DraftPayload {
   storyId: string;
@@ -30,6 +31,8 @@ export interface DraftPayload {
   text: string;
   imageUrl: string | null;
   imageCredit: string | null;
+  /** Все найденные варианты — уходят альбомом, редактор выбирает нужный. */
+  imageOptions: { url: string; credit: string }[];
   sources: { name: string; url: string; tier: number }[];
   confidence: 'CONFIRMED' | 'UNCONFIRMED';
   confidenceNote: string | null;
@@ -69,7 +72,12 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     '— Главное: кто, что и когда. Дату выхода и цену указывай, если они есть,\n      но не перечисляй все позиции коллекции и все цены подряд.',
     '— Без оценок, без рекламных оборотов, без markdown и эмодзи.',
     '— Не пиши заголовок, только сам пересказ.',
-    '— Пиши ПО-РУССКИ и живым языком, а не подстрочником с английского.\n      Латиницей оставляй имена людей, брендов и названия релизов,\n      остальное переводи: не «tunnel fit», а «образ перед игрой».',
+    '— Пиши ПО-РУССКИ, но живо и разговорно — как рассказал бы приятелю.',
+    '— Тусовочные словечки НЕ переводи: tunnel fit, дроп, фит, коллаба,\n'
+      + '      сниппет, релиз, биф, мерч, лук — так и оставляй. «Образ перед\n'
+      + '      игрой» вместо «tunnel fit» звучит казённо и не годится.',
+    '— Можно лёгкий сленг в речи: «выкатил», «завёз», «типа», «зашло».\n'
+      + '      Одного-двух оборотов на текст достаточно, перебор — кринж.',
     story.confidence === 'UNCONFIRMED'
       ? '— Новость пока не подтверждена вторым источником. Не утверждай её как факт: пиши «сообщает», «по данным».'
       : '',
@@ -109,7 +117,8 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     }
   }
 
-  const photo = await findPhoto(story, story.items);
+  const photos = await findPhotos(story, story.items, 5);
+  const photo = photos[0] ?? null;
 
   const sources = [...new Map(story.items.map((i) => [i.source.slug, i])).values()]
     .sort((a, b) => a.source.tier - b.source.tier)
@@ -138,6 +147,7 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     text,
     imageUrl: photo?.url ?? null,
     imageCredit: photo?.credit ?? null,
+    imageOptions: photos,
     sources,
     confidence: story.confidence,
     confidenceNote: story.confidenceNote,

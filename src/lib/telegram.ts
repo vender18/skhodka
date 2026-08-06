@@ -77,7 +77,13 @@ function card(draft: DraftPayload): string {
   if (sources) lines.push(`Источники: ${sources}`);
 
   const category = CATEGORY_LABELS[draft.category] ?? draft.category.toLowerCase();
-  const credit = draft.imageCredit ? ` · фото: ${escapeHtml(draft.imageCredit)}` : '';
+  const count = draft.imageOptions?.length ?? 0;
+  const credit =
+    count > 1
+      ? ` · ${count} варианта фото на выбор`
+      : draft.imageCredit
+        ? ` · фото: ${escapeHtml(draft.imageCredit)}`
+        : '';
   const when = draft.publishedAt.toLocaleString('ru-RU', {
     timeZone: 'Europe/Moscow',
     day: 'numeric',
@@ -163,13 +169,89 @@ async function uploadPhoto(
   return data.result!.message_id;
 }
 
+/**
+ * Отправляет несколько картинок одним альбомом.
+ *
+ * Агент не угадывает, какая фотография подойдёт по настроению, поэтому
+ * присылает все найденные варианты — редактор выбирает сам.
+ */
+async function uploadAlbum(
+  photos: { url: string }[],
+  caption: string | null,
+): Promise<number | null> {
+  const files: { name: string; blob: Blob }[] = [];
+
+  for (const photo of photos.slice(0, 5)) {
+    try {
+      const response = await fetch(photo.url, {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(25_000),
+      });
+      if (!response.ok) continue;
+      if (/avif|heic|svg/i.test(response.headers.get('content-type') ?? '')) continue;
+
+      const bytes = await response.arrayBuffer();
+      if (bytes.byteLength < 5_000) continue;
+
+      files.push({
+        name: `photo${files.length}`,
+        blob: new Blob([bytes], { type: response.headers.get('content-type') ?? 'image/jpeg' }),
+      });
+    } catch {
+      /* пропускаем битую картинку */
+    }
+  }
+
+  if (files.length === 0) return null;
+  if (files.length === 1) return null; // одну шлём обычным путём, с подписью
+
+  const form = new FormData();
+  form.append('chat_id', env.editorChatId);
+  form.append(
+    'media',
+    JSON.stringify(
+      files.map((file, index) => ({
+        type: 'photo',
+        media: `attach://${file.name}`,
+        ...(index === 0 && caption ? { caption, parse_mode: 'HTML' } : {}),
+      })),
+    ),
+  );
+  for (const file of files) form.append(file.name, file.blob, `${file.name}.jpg`);
+
+  const sent = await fetch(`${API}/bot${env.telegramToken}/sendMediaGroup`, {
+    method: 'POST',
+    body: form,
+    signal: AbortSignal.timeout(90_000),
+  });
+
+  const data = (await sent.json()) as {
+    ok: boolean;
+    result?: { message_id: number }[];
+    description?: string;
+  };
+  if (!data.ok) throw new Error(`Telegram sendMediaGroup: ${data.description ?? 'ошибка'}`);
+
+  return data.result?.[0]?.message_id ?? null;
+}
+
 export async function sendDraft(draft: DraftPayload): Promise<number> {
   const body = card(draft);
+  const caption = body.length <= CAPTION_LIMIT ? body : null;
+  const options = draft.imageOptions ?? [];
+
+  if (options.length > 1) {
+    try {
+      const messageId = await uploadAlbum(options, caption);
+      if (messageId !== null && caption) return messageId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Не удалось отправить альбом: ${message}`);
+    }
+  }
 
   if (draft.imageUrl) {
     try {
-      // Если подпись не влезает в лимит, шлём фото без неё, а текст следом
-      const caption = body.length <= CAPTION_LIMIT ? body : null;
       const messageId = await uploadPhoto(draft.imageUrl, caption);
       if (caption) return messageId;
     } catch (error) {

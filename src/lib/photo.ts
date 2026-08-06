@@ -134,29 +134,56 @@ async function wikipediaPhoto(subject: string): Promise<Photo | null> {
 }
 
 /** Свободные фотографии по теме — на случай, когда героя в Википедии нет. */
-async function openversePhoto(query: string): Promise<Photo | null> {
-  if (!query) return null;
+async function openverseMany(query: string, count: number): Promise<Photo[]> {
+  if (!query || count <= 0) return [];
   try {
     const url = new URL('https://api.openverse.org/v1/images/');
     url.searchParams.set('q', query);
-    url.searchParams.set('page_size', '1');
+    url.searchParams.set('page_size', String(Math.min(8, count + 3)));
     url.searchParams.set('license_type', 'all');
 
     const response = await fetch(url, {
       headers: { 'User-Agent': 'skhodka-bot/1.0' },
       signal: AbortSignal.timeout(12_000),
     });
-    if (!response.ok) return null;
+    if (!response.ok) return [];
+
+    const data = (await response.json()) as { results?: { url?: string }[] };
+    return (data.results ?? [])
+      .map((r) => r.url)
+      .filter((u): u is string => !!u && !/\.svg(\?|$)/i.test(u))
+      .map((url) => ({ url, credit: `Openverse — «${query}»` }));
+  } catch {
+    return [];
+  }
+}
+
+/** Несколько эстетичных вариантов со стока. Нужен бесплатный ключ Unsplash. */
+async function searchUnsplashMany(query: string, key: string, count: number): Promise<Photo[]> {
+  if (count <= 0) return [];
+  try {
+    const url = new URL('https://api.unsplash.com/search/photos');
+    url.searchParams.set('query', query);
+    url.searchParams.set('per_page', String(Math.min(8, count + 3)));
+    url.searchParams.set('orientation', 'landscape');
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Client-ID ${key}` },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) return [];
 
     const data = (await response.json()) as {
-      results?: { url?: string; title?: string }[];
+      results?: { urls?: { regular?: string }; user?: { name?: string } }[];
     };
-    const first = data.results?.[0];
-    if (!first?.url || /\.svg(\?|$)/i.test(first.url)) return null;
-
-    return { url: first.url, credit: `Openverse — по запросу «${query}»` };
+    return (data.results ?? [])
+      .filter((r) => r.urls?.regular)
+      .map((r) => ({
+        url: r.urls!.regular!,
+        credit: `Unsplash${r.user?.name ? `, ${r.user.name}` : ''} — «${query}»`,
+      }));
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -216,6 +243,63 @@ async function searchPexels(query: string, key: string): Promise<Photo | null> {
   }
 }
 
+/**
+ * Собирает НЕСКОЛЬКО вариантов фотографии, чтобы редактор выбрал сам.
+ *
+ * Одна картинка — это лотерея: агент не знает, какая подойдёт по настроению.
+ * Пять вариантов решают это за одну отправку.
+ *
+ * Pinterest, о котором просил заказчик, подключить не вышло: поиск отдаёт
+ * пустую страницу (всё рисуется скриптами), а внутренний api отвечает 403.
+ * Без браузера и логина оттуда качать нечего.
+ */
+export async function findPhotos(
+  story: Story,
+  items: ItemWithSource[],
+  limit = 5,
+): Promise<Photo[]> {
+  const found: Photo[] = [];
+  const seen = new Set<string>();
+
+  const add = async (photo: Photo | null): Promise<void> => {
+    if (!photo || found.length >= limit || seen.has(photo.url)) return;
+    if (!(await isUsableImage(photo.url))) return;
+    seen.add(photo.url);
+    found.push(photo);
+  };
+
+  // Сначала всё, что пришло с самой новостью — оно всегда по теме
+  for (const item of items) {
+    if (item.imageUrl) await add({ url: item.imageUrl, credit: item.source.name });
+  }
+  for (const item of items.slice(0, 3)) {
+    if (found.length >= limit) break;
+    const og = await ogImage(item.url);
+    if (og) await add({ url: og, credit: item.source.name });
+  }
+
+  if (found.length >= limit) return found;
+
+  // Дальше — фотографии героя новости
+  const subject = story.subject || (await mainSubject(story));
+  if (subject) {
+    await add(await wikipediaPhoto(subject));
+
+    const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (unsplashKey) {
+      for (const photo of await searchUnsplashMany(subject, unsplashKey, limit - found.length)) {
+        await add(photo);
+      }
+    }
+
+    for (const photo of await openverseMany(subject, limit - found.length)) {
+      await add(photo);
+    }
+  }
+
+  return found;
+}
+
 export async function findPhoto(story: Story, items: ItemWithSource[]): Promise<Photo | null> {
   // 1. Картинка, пришедшая прямо в ленте
   for (const item of items) {
@@ -250,7 +334,7 @@ export async function findPhoto(story: Story, items: ItemWithSource[]): Promise<
     if (photo) return photo;
   }
 
-  const fromOpenverse = await openversePhoto(subject);
+  const fromOpenverse = (await openverseMany(subject, 1))[0];
   if (fromOpenverse && (await isUsableImage(fromOpenverse.url))) return fromOpenverse;
 
   return null;
