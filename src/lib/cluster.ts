@@ -1,6 +1,7 @@
 import { prisma } from './db.js';
 import { completeJson } from './llm.js';
 import { env } from './env.js';
+import { checkFame } from './fame.js';
 import { CHANNEL_BRIEF } from './style.js';
 import type { Category, Confidence } from '@prisma/client';
 
@@ -53,6 +54,7 @@ interface ClusterResponse {
     category: string;
     urgency: number;
     importance: number;
+    subject?: string;
     items: number[];
     skip?: boolean;
     skipReason?: string;
@@ -121,6 +123,9 @@ ${CHANNEL_BRIEF}
   «louis tomlinson», «all eyes on shiest». Не транслитерируй их кириллицей —
   из-за этого один и тот же артист попадает в базу дважды под разными именами.
 — gist: суть в 1–2 предложениях по-русски, только факты из материалов
+— subject: главный герой новости — имя артиста, спортсмена или название
+  бренда, по-английски и как принято в оригинале: «Playboi Carti», «Nike»,
+  «LeBron James». Если героя нет, оставь пустую строку.
 — category: одно из MUSIC, FASHION, SPORT, CINEMA, GENERAL
 — urgency: 1–5. 5 — надо публиковать сейчас, иначе протухнет (внезапный релиз,
   смерть, срочное объявление). 1 — можно поставить когда угодно (обзор, лонгрид).
@@ -155,7 +160,13 @@ ${CHANNEL_BRIEF}
   · архитектуру и дизайн интерьеров целиком — канал про это не пишет;
   · «высокую» культуру: выставки в музеях, театр, оперу, классику, литературу;
   · всё, что не касается молодёжной тусовки. Если новость не про рэп, кроссовки,
-    моду, нба или футбол — скорее всего, её надо отсеять.
+    моду, нба или футбол — скорее всего, её надо отсеять;
+  · артистов и бренды, которых сегодняшняя молодёжь не слушает и не носит.
+    Релиз малоизвестного исполнителя — не новость, даже если о нём написало
+    приличное издание. Сюда же: заслуженные группы 80–90-х, кантри, местные
+    сцены. Ориентир — те, о ком реально говорят: travis scott, playboi carti,
+    kanye, drake, kendrick, future, the weeknd, carti, ken carson, destroy
+    lonely, nike, balenciaga, corteiz, stone island, леброн и подобные.
 
 Ответ — строго JSON вида {"clusters":[...]}. Ничего кроме JSON.
 
@@ -285,6 +296,7 @@ export async function clusterNewItems(maxItems: number = MAX_PER_RUN): Promise<C
             title,
             gist: (cluster.gist ?? '').slice(0, 2000),
             category: normalizeCategory(cluster.category),
+            subject: (cluster.subject ?? '').slice(0, 120) || null,
             urgency: clamp(cluster.urgency, 1, 5, 2),
             importance: clamp(cluster.importance, 1, 5, 2),
             status: 'SCORED',
@@ -300,6 +312,7 @@ export async function clusterNewItems(maxItems: number = MAX_PER_RUN): Promise<C
       });
 
       await applyConfidence(story.id);
+      if (!existing) await applyFame(story.id);
     }
 
     const leftover = batch.filter((item) => !assigned.has(item.id));
@@ -381,4 +394,30 @@ export async function applyConfidence(storyId: string): Promise<void> {
     where: { id: storyId },
     data: { confidence, confidenceNote: note },
   });
+}
+
+
+/**
+ * Проверяет, известен ли герой новости, и снимает с очереди тех, о ком
+ * никто не слышал.
+ *
+ * Модель оценивает известность плохо: для неё «вышел альбом» одинаково
+ * значимо и у Дрейка, и у артиста с четырьмя тысячами читателей в месяц.
+ * Поэтому спрашиваем внешний источник — посещаемость статьи в Википедии.
+ */
+export async function applyFame(storyId: string): Promise<void> {
+  const story = await prisma.story.findUnique({ where: { id: storyId } });
+  if (!story?.subject) return;
+
+  const fame = await checkFame(story.subject);
+  if (!fame.niche) return;
+
+  await prisma.story.update({
+    where: { id: storyId },
+    data: {
+      status: 'SKIPPED',
+      confidenceNote: `Снято: о ${fame.subject} почти никто не ищет (${fame.views} просмотров статьи за месяц)`,
+    },
+  });
+  console.log(`Пропускаю «${story.title}» — ${fame.subject} мало кому известен (${fame.views})`);
 }

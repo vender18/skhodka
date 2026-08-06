@@ -9,6 +9,9 @@ import type { DraftPayload } from './draft.js';
 
 const API = 'https://api.telegram.org';
 
+const USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+
 /** Telegram режет подпись к фото на 1024 знаках, обычное сообщение — на 4096. */
 const CAPTION_LIMIT = 1024;
 const MESSAGE_LIMIT = 4096;
@@ -87,23 +90,81 @@ function card(draft: DraftPayload): string {
  * подбирается фотография её героя. Пост без картинки в таком канале не нужен,
  * поэтому иллюстрация важнее текста.
  */
+/**
+ * Скачивает картинку и отправляет файлом.
+ *
+ * Передавать Telegram ссылку нельзя: он идёт за ней сам, своим качальщиком,
+ * и многие сайты отвечают ему не картинкой. Highsnobiety так и ронял отправку
+ * с «wrong type of the web page content», хотя по той же ссылке из браузера
+ * лежит обычный png. Скачиваем сами — и отдаём уже готовые байты.
+ */
+async function uploadPhoto(
+  imageUrl: string,
+  caption: string | null,
+): Promise<number> {
+  let response = await fetch(imageUrl, {
+    headers: { 'User-Agent': USER_AGENT },
+    signal: AbortSignal.timeout(25_000),
+  });
+  if (!response.ok) throw new Error(`картинка не скачалась: ${response.status}`);
+
+  // Современные CDN отдают avif — Telegram его не умеет и падает с
+  // IMAGE_PROCESS_FAILED. Формат ответа плавает от запроса к запросу, поэтому
+  // смотрим, что реально пришло, и при негодном просим jpeg явно: у imgix и
+  // похожих CDN это параметр fm.
+  if (/avif|heic|svg/i.test(response.headers.get('content-type') ?? '')) {
+    const retryUrl = new URL(imageUrl);
+    retryUrl.searchParams.set('fm', 'jpg');
+    const retry = await fetch(retryUrl, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (retry.ok && !/avif|heic|svg/i.test(retry.headers.get('content-type') ?? '')) {
+      response = retry;
+    } else {
+      throw new Error('картинка только в avif, Telegram такой формат не принимает');
+    }
+  }
+
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength < 5_000) throw new Error('картинка подозрительно мелкая');
+
+  const type = response.headers.get('content-type') ?? 'image/jpeg';
+  const extension = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
+
+  const form = new FormData();
+  form.append('chat_id', env.editorChatId);
+  form.append('photo', new Blob([bytes], { type }), `photo.${extension}`);
+  if (caption) {
+    form.append('caption', caption);
+    form.append('parse_mode', 'HTML');
+  }
+
+  const sent = await fetch(`${API}/bot${env.telegramToken}/sendPhoto`, {
+    method: 'POST',
+    body: form,
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  const data = (await sent.json()) as {
+    ok: boolean;
+    result?: { message_id: number };
+    description?: string;
+  };
+  if (!data.ok) throw new Error(`Telegram sendPhoto: ${data.description ?? 'ошибка'}`);
+
+  return data.result!.message_id;
+}
+
 export async function sendDraft(draft: DraftPayload): Promise<number> {
   const body = card(draft);
 
   if (draft.imageUrl) {
     try {
-      if (body.length <= CAPTION_LIMIT) {
-        const result = await call<{ message_id: number }>('sendPhoto', {
-          chat_id: env.editorChatId,
-          photo: draft.imageUrl,
-          caption: body,
-          parse_mode: 'HTML',
-        });
-        return result.message_id;
-      }
-
-      // Подпись не влезла в лимит Telegram — шлём фото и текст по отдельности
-      await call('sendPhoto', { chat_id: env.editorChatId, photo: draft.imageUrl });
+      // Если подпись не влезает в лимит, шлём фото без неё, а текст следом
+      const caption = body.length <= CAPTION_LIMIT ? body : null;
+      const messageId = await uploadPhoto(draft.imageUrl, caption);
+      if (caption) return messageId;
     } catch (error) {
       // Картинка не критична настолько, чтобы терять новость целиком
       const message = error instanceof Error ? error.message : String(error);

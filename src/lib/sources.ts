@@ -271,42 +271,11 @@ export const SOURCES: SourceDef[] = [
   },
 
   // ─── Телеграм-каналы: радар повестки ─────────────────────────────────────
-  // Все третьего уровня и с низким весом. Они показывают, о чём СЕЙЧАС
-  // говорят — особенно на русской сцене, которой в RSS почти нет, — но
-  // новость сами не подтверждают: для этого нужен нормальный источник.
-  {
-    slug: 'tg-nocap',
-    name: 'No Cap',
-    kind: 'telegram',
-    feedUrl: 'nocap',
-    siteUrl: 'https://t.me/nocap',
-    category: 'MUSIC',
-    region: 'RU',
-    tier: 3,
-    weight: 6,
-  },
-  {
-    slug: 'tg-theflow',
-    name: 'The Flow',
-    kind: 'telegram',
-    feedUrl: 'superslowflow',
-    siteUrl: 'https://t.me/superslowflow',
-    category: 'MUSIC',
-    region: 'RU',
-    tier: 3,
-    weight: 6,
-  },
-  {
-    slug: 'tg-fmlmatters',
-    name: 'FML MATTERS',
-    kind: 'telegram',
-    feedUrl: 'fmlmttrs',
-    siteUrl: 'https://t.me/fmlmttrs',
-    category: 'MUSIC',
-    region: 'RU',
-    tier: 3,
-    weight: 5,
-  },
+  // Все третьего уровня и с низким весом: показывают, о чём СЕЙЧАС говорят,
+  // но новость сами не подтверждают — для этого нужен нормальный источник.
+  //
+  // Каналов намеренно мало. На них надо ОРИЕНТИРОВАТЬСЯ, а не перепечатывать:
+  // подключишь весь список — канал станет пересказом чужих лент.
   {
     slug: 'tg-musiccore',
     name: 'Music Core',
@@ -314,6 +283,17 @@ export const SOURCES: SourceDef[] = [
     feedUrl: 'themusiccore',
     siteUrl: 'https://t.me/themusiccore',
     category: 'MUSIC',
+    region: 'RU',
+    tier: 3,
+    weight: 5,
+  },
+  {
+    slug: 'tg-omanko',
+    name: 'ÖMANKÖ',
+    kind: 'telegram',
+    feedUrl: 'omanko',
+    siteUrl: 'https://t.me/omanko',
+    category: 'GENERAL',
     region: 'RU',
     tier: 3,
     weight: 5,
@@ -328,17 +308,6 @@ export const SOURCES: SourceDef[] = [
     region: 'RU',
     tier: 3,
     weight: 6,
-  },
-  {
-    slug: 'tg-ame',
-    name: 'ame',
-    kind: 'telegram',
-    feedUrl: 'amemagazine',
-    siteUrl: 'https://t.me/amemagazine',
-    category: 'FASHION',
-    region: 'RU',
-    tier: 3,
-    weight: 5,
   },
 ];
 
