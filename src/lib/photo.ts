@@ -22,6 +22,23 @@ export interface Photo {
 
 type ItemWithSource = Item & { source: Source };
 
+/**
+ * Опознаёт картинку независимо от размера и параметров ссылки.
+ * «photo-e1785954683838.webp?w=1024» и «photo.jpg?w=640&fm=jpg» — это одно
+ * и то же изображение, и в подборке оно должно быть один раз.
+ */
+function fingerprint(url: string): string {
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+    return path
+      .replace(/\.[a-z]{3,4}$/, '')
+      .replace(/[-_]?(?:\d{2,4}x\d{2,4}|scaled|thumb|large|small|medium)$/g, '')
+      .replace(/-e\d{10,}$/, '');
+  } catch {
+    return url;
+  }
+}
+
 /** Проверяет, что по ссылке действительно лежит картинка приемлемого размера. */
 async function isUsableImage(url: string): Promise<boolean> {
   try {
@@ -133,31 +150,6 @@ async function wikipediaPhoto(subject: string): Promise<Photo | null> {
   return null;
 }
 
-/** Свободные фотографии по теме — на случай, когда героя в Википедии нет. */
-async function openverseMany(query: string, count: number): Promise<Photo[]> {
-  if (!query || count <= 0) return [];
-  try {
-    const url = new URL('https://api.openverse.org/v1/images/');
-    url.searchParams.set('q', query);
-    url.searchParams.set('page_size', String(Math.min(8, count + 3)));
-    url.searchParams.set('license_type', 'all');
-
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'skhodka-bot/1.0' },
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!response.ok) return [];
-
-    const data = (await response.json()) as { results?: { url?: string }[] };
-    return (data.results ?? [])
-      .map((r) => r.url)
-      .filter((u): u is string => !!u && !/\.svg(\?|$)/i.test(u))
-      .map((url) => ({ url, credit: `Openverse — «${query}»` }));
-  } catch {
-    return [];
-  }
-}
-
 /** Несколько эстетичных вариантов со стока. Нужен бесплатный ключ Unsplash. */
 async function searchUnsplashMany(query: string, key: string, count: number): Promise<Photo[]> {
   if (count <= 0) return [];
@@ -262,9 +254,17 @@ export async function findPhotos(
   const seen = new Set<string>();
 
   const add = async (photo: Photo | null): Promise<void> => {
-    if (!photo || found.length >= limit || seen.has(photo.url)) return;
+    if (!photo || found.length >= limit) return;
+
+    // Одна и та же картинка приходит под разными ссылками: в ленте с одним
+    // размером, в og:image — с другим, плюс хвост параметров. Поэтому
+    // сравниваем по имени файла без размеров и параметров, иначе в альбом
+    // попадают дубли — так и случилось с туром J. Cole.
+    const key = fingerprint(photo.url);
+    if (seen.has(key)) return;
     if (!(await isUsableImage(photo.url))) return;
-    seen.add(photo.url);
+
+    seen.add(key);
     found.push(photo);
   };
 
@@ -292,9 +292,6 @@ export async function findPhotos(
       }
     }
 
-    for (const photo of await openverseMany(subject, limit - found.length)) {
-      await add(photo);
-    }
   }
 
   return found;
@@ -317,7 +314,7 @@ export async function findPhoto(story: Story, items: ItemWithSource[]): Promise<
   }
 
   // 3. Своей картинки нет — ищем фото самого героя новости.
-  // Ключи для стоков не нужны: Википедия и Openverse открыты.
+  // Википедия работает без ключа и даёт настоящие фото людей.
   const subject = await mainSubject(story);
 
   const fromWiki = await wikipediaPhoto(subject);
@@ -333,9 +330,6 @@ export async function findPhoto(story: Story, items: ItemWithSource[]): Promise<
     const photo = await searchPexels(subject || story.title, pexelsKey);
     if (photo) return photo;
   }
-
-  const fromOpenverse = (await openverseMany(subject, 1))[0];
-  if (fromOpenverse && (await isUsableImage(fromOpenverse.url))) return fromOpenverse;
 
   return null;
 }
