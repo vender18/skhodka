@@ -92,7 +92,7 @@ const OPINION = [
 ];
 
 export interface QualityIssue {
-  kind: 'banned' | 'retelling' | 'too-long' | 'sales-pitch' | 'opinion';
+  kind: 'banned' | 'retelling' | 'too-long' | 'sales-pitch' | 'opinion' | 'wrong-language';
   detail: string;
 }
 
@@ -165,8 +165,18 @@ export function findIssues(text: string): QualityIssue[] {
     });
   }
 
-  // Верхняя планка с запасом: цель 80–300 знаков, но браковать текст на 320
-  // смысла нет — это всё ещё короткий пост.
+  // Модель иногда отвечает на языке исходников — на живых новостях один
+  // пересказ пришёл целиком по-английски. Считаем по буквам: латиница
+  // в русском тексте встречается (имена, бренды), но не преобладает.
+  const cyrillic = (text.match(/\p{Script=Cyrillic}/gu) ?? []).length;
+  const latin = (text.match(/\p{Script=Latin}/gu) ?? []).length;
+  if (latin > cyrillic && latin > 40) {
+    issues.push({
+      kind: 'wrong-language',
+      detail: 'пересказ написан не по-русски. Перепиши на русском языке',
+    });
+  }
+
   if (text.length > 700) {
     issues.push({
       kind: 'too-long',
