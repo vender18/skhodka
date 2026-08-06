@@ -40,25 +40,43 @@ function fingerprint(url: string): string {
   }
 }
 
-/** Проверяет, что по ссылке действительно лежит картинка приемлемого размера. */
+/**
+ * Проверяет, что по ссылке действительно лежит картинка приемлемого размера.
+ *
+ * Запрашиваем первые пару килобайт обычным GET, а НЕ методом HEAD: многие
+ * сайты HEAD режут. Sneaker News на HEAD отвечает 403, и из-за этого к
+ * новости про кроссовки Anthony Edwards не подобралось ни одной картинки —
+ * хотя обычным запросом та же ссылка отдаёт jpeg на сто килобайт.
+ */
 async function isUsableImage(url: string): Promise<boolean> {
   try {
     const response = await fetch(url, {
-      method: 'HEAD',
-      headers: { 'User-Agent': USER_AGENT },
-      signal: AbortSignal.timeout(10_000),
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'image/jpeg,image/png,image/*;q=0.8',
+        Range: 'bytes=0-4096',
+      },
+      signal: AbortSignal.timeout(12_000),
     });
-    if (!response.ok) return false;
+    // 206 — сервер отдал кусок, 200 — отдал целиком, оба нас устраивают
+    if (response.status !== 200 && response.status !== 206) return false;
 
     const type = response.headers.get('content-type') ?? '';
     if (!type.startsWith('image/')) return false;
 
-    // Иконки и трекинг-пиксели телеграму не нужны
-    const length = Number(response.headers.get('content-length') ?? '0');
-    if (length > 0 && length < 15_000) return false;
+    // Telegram не обрабатывает avif и вектор
+    if (/avif|heic|svg/i.test(type)) return false;
 
-    // Telegram не принимает картинки тяжелее 10 МБ по URL
-    if (length > 10_000_000) return false;
+    // Полный размер: из Content-Range при кусочном ответе, иначе из длины
+    const range = response.headers.get('content-range');
+    const total = range
+      ? Number(range.split('/')[1] ?? '0')
+      : Number(response.headers.get('content-length') ?? '0');
+
+    // Иконки и трекинг-пиксели телеграму не нужны
+    if (total > 0 && total < 15_000) return false;
+    // Telegram не принимает картинки тяжелее 10 МБ
+    if (total > 10_000_000) return false;
 
     return true;
   } catch {
@@ -87,6 +105,43 @@ async function ogImage(pageUrl: string): Promise<string | null> {
     return new URL(candidate, pageUrl).toString();
   } catch {
     return null;
+  }
+}
+
+/** Все заметные картинки со страницы статьи, начиная с главной. */
+async function articleImages(pageUrl: string): Promise<string[]> {
+  try {
+    const response = await fetch(pageUrl, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) return [];
+
+    const $ = cheerio.load(await response.text());
+    const urls: string[] = [];
+
+    const og =
+      $('meta[property="og:image"]').attr('content') ??
+      $('meta[name="twitter:image"]').attr('content');
+    if (og) urls.push(og);
+
+    $('article img, .entry-content img, .post-content img, main img').each((_, el) => {
+      const src = $(el).attr('src') ?? $(el).attr('data-src');
+      if (src) urls.push(src);
+    });
+
+    return urls
+      .map((src) => {
+        try {
+          return new URL(src, pageUrl).toString();
+        } catch {
+          return null;
+        }
+      })
+      .filter((u): u is string => !!u && !/logo|avatar|icon|sprite|placeholder/i.test(u))
+      .slice(0, 12);
+  } catch {
+    return [];
   }
 }
 
@@ -272,11 +327,19 @@ export async function findPhotos(
   // Сначала всё, что пришло с самой новостью — оно всегда по теме
   for (const item of items) {
     if (item.imageUrl) await add({ url: item.imageUrl, credit: item.source.name });
+    for (const url of item.extraImages) {
+      if (found.length >= limit) break;
+      await add({ url, credit: item.source.name });
+    }
   }
+  // Со страницы статьи берём не только og:image, но и картинки из текста:
+  // в материалах про кроссовки их обычно несколько, и все по делу.
   for (const item of items.slice(0, 3)) {
     if (found.length >= limit) break;
-    const og = await ogImage(item.url);
-    if (og) await add({ url: og, credit: item.source.name });
+    for (const url of await articleImages(item.url)) {
+      await add({ url, credit: item.source.name });
+      if (found.length >= limit) break;
+    }
   }
 
   if (found.length >= limit) return found;

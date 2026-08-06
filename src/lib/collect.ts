@@ -25,6 +25,7 @@ const parser = new Parser({
     item: [
       ['media:content', 'mediaContent', { keepArray: true }],
       ['media:thumbnail', 'mediaThumbnail'],
+      ['content:encoded', 'contentEncoded'],
     ],
   },
 });
@@ -71,6 +72,24 @@ function extractImage(item: Record<string, unknown>): string | null {
   return match?.[1] ?? null;
 }
 
+/**
+ * Все картинки из полного текста материала.
+ *
+ * Страницы изданий всё чаще рисуются скриптами и картинок в html не содержат
+ * вовсе — у Sneaker News их ноль. Зато в самой ленте лежит полный текст, а в
+ * нём тридцать фотографий кроссовок. Оттуда и берём.
+ */
+function extractAllImages(item: Record<string, unknown>): string[] {
+  const html =
+    ((item.contentEncoded as string) ?? '') + ((item['content:encoded'] as string) ?? '');
+  const found = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]!);
+
+  return [...new Set(found)]
+    .filter((url) => /^https?:/i.test(url))
+    .filter((url) => !/logo|avatar|icon|sprite|pixel|badge|emoji/i.test(url))
+    .slice(0, 15);
+}
+
 /** Убирает utm-метки, чтобы одна и та же ссылка не считалась двумя разными. */
 function canonicalUrl(raw: string): string {
   try {
@@ -103,7 +122,14 @@ function stripHtml(input: string | undefined): string | null {
 /** Общая запись материала в базу — одинаковая для лент и телеграм-каналов. */
 async function saveItem(
   source: Source,
-  data: { url: string; title: string; summary: string | null; imageUrl: string | null; publishedAt: Date },
+  data: {
+    url: string;
+    title: string;
+    summary: string | null;
+    imageUrl: string | null;
+    extraImages?: string[];
+    publishedAt: Date;
+  },
 ): Promise<number> {
   // Очевидно неподходящее помечаем сразу: до модели такой материал не дойдёт
   // и не съест лимит токенов, но в базе останется — вдруг понадобится для сверки.
@@ -119,6 +145,7 @@ async function saveItem(
         title: data.title.slice(0, 500),
         summary: data.summary,
         imageUrl: data.imageUrl,
+        extraImages: data.extraImages ?? [],
         publishedAt: data.publishedAt,
         skipped: rejected !== null,
       },
@@ -177,6 +204,7 @@ async function collectFromSource(source: Source): Promise<number> {
       title,
       summary: stripHtml(entry.contentSnippet ?? entry.content ?? entry.summary),
       imageUrl: extractImage(entry as unknown as Record<string, unknown>),
+      extraImages: extractAllImages(entry as unknown as Record<string, unknown>),
       publishedAt,
     });
   }

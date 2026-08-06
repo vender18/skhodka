@@ -74,6 +74,27 @@ const RETELLING = [
  * Оценки от лица канала. Заказчик хочет только факты: своё отношение
  * он дописывает сам при вычитке, и подсунутая моделью реакция ему мешает.
  */
+/**
+ * Обороты, которыми модель дописывает несуществующие слухи и ожидания.
+ *
+ * После того как стиль разрешили делать живее, в карточку про кроссовки
+ * Anthony Edwards уехало «уже шуршат слухи о дропе в конце месяца» — в
+ * источнике не было ни слова про сроки. Живость должна быть в интонации,
+ * а не в новых фактах.
+ */
+const INVENTED = [
+  'шуршат слухи',
+  'ходят слухи',
+  'поговаривают',
+  'ожидается, что',
+  'скорее всего',
+  'судя по всему',
+  'фанаты в предвкушении',
+  'фанаты ждут',
+  'обещают, что',
+  'намекают на',
+];
+
 const OPINION = [
   'красиво, конечно',
   'красиво конечно',
@@ -92,7 +113,7 @@ const OPINION = [
 ];
 
 export interface QualityIssue {
-  kind: 'banned' | 'retelling' | 'too-long' | 'sales-pitch' | 'opinion' | 'wrong-language';
+  kind: 'banned' | 'retelling' | 'too-long' | 'sales-pitch' | 'opinion' | 'wrong-language' | 'invented';
   detail: string;
 }
 
@@ -152,6 +173,16 @@ export function findIssues(text: string): QualityIssue[] {
     issues.push({
       kind: 'retelling',
       detail: `текст пересказывает чужую статью вместо того, чтобы сообщить новость: ${retelling.join(', ')}`,
+    });
+  }
+
+  const invented = INVENTED.filter((phrase) => lower.includes(phrase));
+  if (invented.length > 0) {
+    issues.push({
+      kind: 'invented',
+      detail:
+        `дописаны слухи или ожидания, которых нет в источнике (${invented.join(', ')}). ` +
+        'Оставь только то, что сказано в материалах',
     });
   }
 

@@ -72,6 +72,9 @@ model Item {
   title       String
   summary     String?  @db.Text
   imageUrl    String?
+  /// Остальные картинки из полного текста ленты. У материалов про кроссовки
+  /// их бывает три десятка, и все по делу — из них собирается подборка.
+  extraImages String[]
   publishedAt DateTime
   fetchedAt   DateTime @default(now())
 
