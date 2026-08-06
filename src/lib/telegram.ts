@@ -78,7 +78,14 @@ function card(draft: DraftPayload): string {
 
   const category = CATEGORY_LABELS[draft.category] ?? draft.category.toLowerCase();
   const credit = draft.imageCredit ? ` · фото: ${escapeHtml(draft.imageCredit)}` : '';
-  lines.push(`<i>${category} · важность ${draft.importance}/5${credit}</i>`);
+  const when = draft.publishedAt.toLocaleString('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  lines.push(`<i>${when} МСК · ${category} · важность ${draft.importance}/5${credit}</i>`);
 
   return lines.join('\n');
 }

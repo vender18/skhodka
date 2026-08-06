@@ -29,8 +29,14 @@ const URGENT_MIN_IMPORTANCE = 3;
 /** Громкая неподтверждённая новость — присылаем сигналом. */
 const ALERT_MIN_IMPORTANCE = 4;
 
-/** Сколько карточек максимум в одном дайджесте. */
-const DIGEST_SIZE = 6;
+/**
+ * Сколько карточек максимум в одном дайджесте.
+ *
+ * Дайджест выходит трижды в день, значит по две карточки дают около шести
+ * постов в сутки — примерно столько заказчик и хочет публиковать. Срочные
+ * новости приходят сверх этого, но они редки.
+ */
+const DIGEST_SIZE = 2;
 
 /**
  * Ниже этой важности новость не отправляем вовсе.
@@ -75,6 +81,14 @@ const CATEGORY_LIMIT = 2;
 /** Спорта в канале должно быть особенно мало. */
 const SPORT_LIMIT = 1;
 
+/**
+ * Злободневные новости про запреты и блокировки идут отдельной квотой.
+ *
+ * Они нужны, чтобы разбавлять ленту модных новостей, но лента про моду не
+ * должна превратиться в ленту про запреты — поэтому не больше одной за раз.
+ */
+const TOPICAL_LIMIT = 1;
+
 type StoryWithItems = Awaited<ReturnType<typeof loadStories>>[number];
 
 async function loadStories(where: object, take: number) {
@@ -108,11 +122,17 @@ function rank(stories: StoryWithItems[], limit: number): StoryWithItems[] {
   for (const story of sorted) {
     if (picked.length >= limit) break;
 
-    const quota = story.category === 'SPORT' ? SPORT_LIMIT : CATEGORY_LIMIT;
-    const used = taken.get(story.category) ?? 0;
+    const bucket = story.topical ? 'TOPICAL' : story.category;
+    const quota = story.topical
+      ? TOPICAL_LIMIT
+      : story.category === 'SPORT'
+        ? SPORT_LIMIT
+        : CATEGORY_LIMIT;
+
+    const used = taken.get(bucket) ?? 0;
     if (used >= quota) continue;
 
-    taken.set(story.category, used + 1);
+    taken.set(bucket, used + 1);
     picked.push(story);
   }
 
@@ -188,9 +208,9 @@ async function runCollect(): Promise<void> {
         urgency: { gte: URGENT_MIN_URGENCY },
         importance: { gte: URGENT_MIN_IMPORTANCE },
       },
-      3,
+      2,
     ),
-    3,
+    2,
   );
 
   let sent = 0;

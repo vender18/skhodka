@@ -36,6 +36,8 @@ export interface DraftPayload {
   urgency: number;
   importance: number;
   category: string;
+  /** Когда новость вышла у источника — редактору важно понимать свежесть. */
+  publishedAt: Date;
 }
 
 export async function writeDraft(storyId: string): Promise<DraftPayload | null> {
@@ -62,12 +64,12 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     'красота формулировок, а точность и полнота фактов.',
     '',
     'Правила:',
-    '— 2–3 предложения, до 350 знаков. Это справка, а не пересказ статьи.',
+    '— 3–4 предложения, до 450 знаков.',
     '— Только факты из материалов. Ничего не додумывай.',
     '— Главное: кто, что и когда. Дату выхода и цену указывай, если они есть,\n      но не перечисляй все позиции коллекции и все цены подряд.',
     '— Без оценок, без рекламных оборотов, без markdown и эмодзи.',
     '— Не пиши заголовок, только сам пересказ.',
-    '— Пиши ПО-РУССКИ. Латиницей оставляй только имена и названия.',
+    '— Пиши ПО-РУССКИ и живым языком, а не подстрочником с английского.\n      Латиницей оставляй имена людей, брендов и названия релизов,\n      остальное переводи: не «tunnel fit», а «образ перед игрой».',
     story.confidence === 'UNCONFIRMED'
       ? '— Новость пока не подтверждена вторым источником. Не утверждай её как факт: пиши «сообщает», «по данным».'
       : '',
@@ -142,5 +144,6 @@ export async function writeDraft(storyId: string): Promise<DraftPayload | null> 
     urgency: story.urgency,
     importance: story.importance,
     category: story.category,
+    publishedAt: story.items[0]?.publishedAt ?? story.createdAt,
   };
 }

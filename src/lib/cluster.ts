@@ -55,6 +55,8 @@ interface ClusterResponse {
     urgency: number;
     importance: number;
     subject?: string;
+    subjectKind?: string;
+    topical?: boolean;
     items: number[];
     skip?: boolean;
     skipReason?: string;
@@ -126,6 +128,11 @@ ${CHANNEL_BRIEF}
 — subject: главный герой новости — имя артиста, спортсмена или название
   бренда, по-английски и как принято в оригинале: «Playboi Carti», «Nike»,
   «LeBron James». Если героя нет, оставь пустую строку.
+— subjectKind: "person" если герой человек, "brand" если бренд или компания,
+  иначе "other".
+— topical: true, если это злободневная новость про запреты и ограничения в
+  интернете, музыке или культуре — блокировки, РКН, VPN, запрет сервисов,
+  штрафы за музыку. Такие новости каналу нужны, но редко.
 — category: одно из MUSIC, FASHION, SPORT, CINEMA, GENERAL
 — urgency: 1–5. 5 — надо публиковать сейчас, иначе протухнет (внезапный релиз,
   смерть, срочное объявление). 1 — можно поставить когда угодно (обзор, лонгрид).
@@ -161,12 +168,32 @@ ${CHANNEL_BRIEF}
   · «высокую» культуру: выставки в музеях, театр, оперу, классику, литературу;
   · всё, что не касается молодёжной тусовки. Если новость не про рэп, кроссовки,
     моду, нба или футбол — скорее всего, её надо отсеять;
-  · артистов и бренды, которых сегодняшняя молодёжь не слушает и не носит.
-    Релиз малоизвестного исполнителя — не новость, даже если о нём написало
-    приличное издание. Сюда же: заслуженные группы 80–90-х, кантри, местные
-    сцены. Ориентир — те, о ком реально говорят: travis scott, playboi carti,
-    kanye, drake, kendrick, future, the weeknd, carti, ken carson, destroy
-    lonely, nike, balenciaga, corteiz, stone island, леброн и подобные.
+  · артистов, которых сегодняшняя молодёжь не слушает. Релиз малоизвестного
+    исполнителя — не новость, даже если о нём написало приличное издание.
+    Сюда же заслуженные группы 80–90-х, кантри, местные сцены;
+  · внутрицеховые дела индустрии: кто подписал контракт с агентством, кого
+    наняли менеджером, кадровые перестановки в лейблах. Читателю всё равно;
+  · коллаборации слабых брендов. Коллаборация — новость только если ХОТЯ БЫ
+    ОДНА сторона из первого ряда. Первый ряд:
+      Nike, Jordan, Adidas, New Balance, Asics, Salomon, Puma, Converse, Vans,
+      Supreme, Stussy, Palace, Corteiz, Stone Island, Bape, Carhartt WIP,
+      The North Face, Arc'teryx, Denim Tears, Sp5der, Chrome Hearts,
+      Aime Leon Dore, Kith, Balenciaga, Prada, Miu Miu, Gucci, Louis Vuitton,
+      Dior, Bottega Veneta, Loewe, Jacquemus, Rick Owens, Maison Margiela,
+      Comme des Garcons, Off-White, Yeezy, Telfar, Crocs,
+      либо крупный артист или спортсмен.
+    Fila, Fruit of the Loom, Skechers, безымянные локальные марки и всё, чего
+    нет в списке и что не на слуху, — отсеивай, даже если новость свежая;
+  · фестивали и мероприятия, о которых знают только местные. Оставляем
+    крупные: Coachella, Rolling Loud, Glastonbury, Primavera, Tomorrowland,
+    Met Gala, недели моды в Париже, Милане, Нью-Йорке и Лондоне.
+
+Что берём охотнее всего:
+  · кроссовки баскетболистов и их именные модели — это лучший материал
+    для канала (Anthony Edwards 3, Ja 2, LeBron, Kobe, Sabrina);
+  · сумасшедшие коллаборации, где сочетание само по себе новость;
+  · бифы, скандалы и публичные ответы артистов друг другу;
+  · крупные премьеры кино, о которых говорят все.
 
 Ответ — строго JSON вида {"clusters":[...]}. Ничего кроме JSON.
 
@@ -297,6 +324,8 @@ export async function clusterNewItems(maxItems: number = MAX_PER_RUN): Promise<C
             gist: (cluster.gist ?? '').slice(0, 2000),
             category: normalizeCategory(cluster.category),
             subject: (cluster.subject ?? '').slice(0, 120) || null,
+            subjectKind: (cluster.subjectKind ?? '').slice(0, 20) || null,
+            topical: cluster.topical === true,
             urgency: clamp(cluster.urgency, 1, 5, 2),
             importance: clamp(cluster.importance, 1, 5, 2),
             status: 'SCORED',
@@ -408,6 +437,12 @@ export async function applyConfidence(storyId: string): Promise<void> {
 export async function applyFame(storyId: string): Promise<void> {
   const story = await prisma.story.findUnique({ where: { id: storyId } });
   if (!story?.subject) return;
+
+  // Только люди. У брендов посещаемость Википедии измеряет не уличную
+  // известность, а энциклопедический интерес, и врёт наотмашь: Corteiz
+  // набирает 3800 просмотров в месяц, Stone Island — 9300, а никому не
+  // нужный Fruit of the Loom — 17800. Бренды отсеиваются списком в промте.
+  if (story.subjectKind !== 'person') return;
 
   const fame = await checkFame(story.subject);
   if (!fame.niche) return;
